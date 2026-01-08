@@ -1,0 +1,39 @@
+========================================
+BookForMX 立即执行部署
+========================================
+
+由于 Cursor 终端环境问题，已创建完全绕过 shell 的脚本。
+
+【执行方法】
+
+在您的系统终端（Terminal.app）执行：
+
+cd "/Users/a58/cursor/归档/OK 调研/bookforMX"
+python3 直接执行_无shell.py
+
+【脚本功能】
+
+✅ 完全绕过 shell 环境
+✅ 直接使用 Python subprocess
+✅ 自动完成所有 Git 操作
+✅ 自动推送到 GitHub
+
+【如果推送失败】
+
+1. 仓库未创建：
+   - 访问: https://github.com/new
+   - 创建: bookforMX 仓库
+
+2. 需要认证：
+   - 访问: https://github.com/settings/tokens
+   - 生成 Personal Access Token
+
+【推送成功后】
+
+访问: https://vercel.com/new
+导入: bookforMX 仓库
+点击: Deploy
+
+========================================
+
+

@@ -1,0 +1,11 @@
+# BookForMX 部署命令（复制执行）
+
+# 1. 添加远程仓库（替换 YOUR_USERNAME）
+git remote add origin https://github.com/YOUR_USERNAME/bookforMX.git
+
+# 2. 推送到 GitHub
+git push -u origin main
+
+# 如果已存在远程仓库，先删除：
+# git remote remove origin
+# git remote add origin https://github.com/YOUR_USERNAME/bookforMX.git

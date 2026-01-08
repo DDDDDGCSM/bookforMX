@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="es-MX">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ book.title }} - BookForMX</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+    <header>
+        <nav>
+            <div class="logo">BookForMX</div>
+            <ul class="nav-links">
+                <li><a href="/">Plaza de Libros</a></li>
+                <li><a href="/exchange-wall">El Mural del Trueque</a></li>
+                <li><a href="#mi-estanteria">Mi Estantería</a></li>
+            </ul>
+        </nav>
+    </header>
+
+    <div class="container">
+        <div class="book-detail-container">
+            <!-- 标签页导航 -->
+            <div class="tabs">
+                <button class="tab-btn active" data-tab="book">El Libro</button>
+                <button class="tab-btn" data-tab="story">Su Historia</button>
+                <button class="tab-btn" data-tab="exchanges">Intercambios Pasados</button>
+            </div>
+
+            <!-- 标签页内容 -->
+            <div class="tab-content active" id="tab-book">
+                <h2>{{ book.title }}</h2>
+                <p class="author">por {{ book.author }}</p>
+
+                <!-- 相册 -->
+                <div class="photo-gallery">
+                    <div class="photo-item">
+                        <img src="{{ book.cover }}" alt="Portada">
+                    </div>
+                    <div class="photo-item">
+                        <img src="{{ book.cover }}" alt="Página de título">
+                    </div>
+                    <div class="photo-item">
+                        <img src="{{ book.cover }}" alt="Anotaciones">
+                    </div>
+                </div>
+
+                <!-- 详细信息 -->
+                <div style="margin-top: 30px;">
+                    <h3>Información del Libro</h3>
+                    <div style="background: var(--color-paper-light); padding: 20px; border-radius: 8px; margin-top: 15px;">
+                        <p><strong>ISBN:</strong> {{ book.isbn }}</p>
+                        <p><strong>Editorial:</strong> {{ book.publisher }}</p>
+                        <p><strong>Estado:</strong> {{ book.condition }}</p>
+                    </div>
+                </div>
+
+                <!-- 书籍旅程 -->
+                <div style="margin-top: 40px;">
+                    <h3>El viaje de este libro</h3>
+                    <div class="timeline">
+                        {% for exchange in exchange_history %}
+                        <div class="timeline-item">
+                            <div class="timeline-date">{{ exchange.date }}</div>
+                            <div class="timeline-content">
+                                <p><strong>{{ exchange.from_user }}</strong> → <strong>{{ exchange.to_user }}</strong></p>
+                                <p style="color: var(--color-text-light); font-size: 14px;">{{ exchange.city }}</p>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+
+            <!-- 标签页2: Su Historia -->
+            <div class="tab-content" id="tab-story">
+                <!-- 发起人信息 -->
+                <div style="text-align: center; margin-bottom: 40px;">
+                    <img src="{{ book.user.avatar }}" alt="{{ book.user.name }}" 
+                         style="width: 120px; height: 120px; border-radius: 50%; margin-bottom: 15px;">
+                    <h2>{{ book.user.name }}</h2>
+                    <span class="trust-badge {{ book.user.trust_level }}">{{ book.user.trust_badge }}</span>
+                    <p style="margin-top: 15px;">
+                        <a href="#" style="color: var(--color-primary); text-decoration: none;">
+                            Ver Mi Estantería →
+                        </a>
+                    </p>
+                </div>
+
+                <!-- 故事正文 -->
+                <div style="background: var(--color-paper-light); padding: 30px; border-radius: 10px;">
+                    <h3 style="margin-bottom: 20px; color: var(--color-primary);">Mi historia con este libro</h3>
+                    <div style="line-height: 1.8; color: var(--color-text);">
+                        <p>Este libro llegó a mis manos en un momento muy especial de mi vida. {{ book.why_release }}</p>
+                        <p style="margin-top: 20px;">Lo leí durante las tardes de verano, sentada en el jardín de mi abuela. Cada página me transportaba a Macondo, un lugar que sentía tan real como mi propio barrio.</p>
+                        <p style="margin-top: 20px;">Ahora, después de varios años, siento que es momento de dejarlo ir. Quiero que encuentre a alguien que también necesite esta historia, que busque respuestas o simplemente quiera perderse en sus páginas.</p>
+                        <p style="margin-top: 20px; font-style: italic; color: var(--color-text-light);">
+                            Si este libro te llama, si sientes que puede ser para ti, entonces probablemente lo sea. Elige un libro de tu estantería que sea una respuesta digna a esta historia, y empecemos un diálogo.
+                        </p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 标签页3: Intercambios Pasados -->
+            <div class="tab-content" id="tab-exchanges">
+                <h3>Intercambios Realizados</h3>
+                <div style="margin-top: 30px;">
+                    {% for exchange in exchange_history %}
+                    <div class="exchange-card" style="margin-bottom: 20px;">
+                        <div class="exchange-books">
+                            <div class="exchange-book">
+                                <img src="{{ book.cover }}" alt="Libro intercambiado">
+                                <p style="margin-top: 10px; font-weight: 600;">{{ exchange.from_user }}</p>
+                            </div>
+                            <div class="exchange-icon">🤝</div>
+                            <div class="exchange-book">
+                                <img src="{{ book.cover }}" alt="Libro recibido">
+                                <p style="margin-top: 10px; font-weight: 600;">{{ exchange.to_user }}</p>
+                            </div>
+                        </div>
+                        <div class="exchange-message">
+                            "Un intercambio maravilloso. El libro llegó en perfecto estado y la historia que compartió fue conmovedora."
+                        </div>
+                        <div class="exchange-date">{{ exchange.date }}</div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+
+            <!-- 侧边栏行动区 -->
+            <div class="sidebar-action">
+                <h3 style="margin-bottom: 10px;">¿Te llama este libro?</h3>
+                <p style="font-size: 14px; opacity: 0.9;">Inicia un diálogo a través de los libros</p>
+                <button class="exchange-btn" onclick="openExchangeModal()">
+                    📖 Solicitar Intercambio
+                </button>
+                <p style="font-size: 12px; margin-top: 15px; opacity: 0.8;">
+                    Requisitos: Perfil completo y al menos 1 libro en tu estantería
+                </p>
+            </div>
+        </div>
+    </div>
+
+    <!-- 申请交换模态框 -->
+    <div class="modal" id="exchangeModal">
+        <div class="modal-content">
+            <button class="modal-close" onclick="closeExchangeModal()">&times;</button>
+            
+            <!-- Paso 1: Cuéntale tu historia -->
+            <div class="modal-step active" id="step1">
+                <div class="step-indicator">
+                    <div class="step active">
+                        <span>1</span>
+                        <div class="step-content">Tu Historia</div>
+                    </div>
+                    <div class="step">
+                        <span>2</span>
+                        <div class="step-content">Elige tu Libro</div>
+                    </div>
+                </div>
+
+                <h2 style="margin-bottom: 20px;">Cuéntale tu historia</h2>
+                <p style="color: var(--color-text-light); margin-bottom: 25px;">
+                    ¿Por qué este libro te llama a ti? ¿Con qué libro tuyo quieres responder a su historia?
+                </p>
+                
+                <div class="form-group">
+                    <label>Tu historia (mínimo 50 palabras)</label>
+                    <textarea id="userStory" placeholder="Escribe aquí por qué este libro te llama y qué libro de tu estantería quieres intercambiar..."></textarea>
+                </div>
+
+                <div class="modal-actions">
+                    <button class="btn btn-secondary" onclick="closeExchangeModal()">Cancelar</button>
+                    <button class="btn btn-primary" onclick="nextStep(2)">Siguiente</button>
+                </div>
+            </div>
+
+            <!-- Paso 2: Elige tu libro -->
+            <div class="modal-step" id="step2">
+                <div class="step-indicator">
+                    <div class="step completed">
+                        <span>✓</span>
+                        <div class="step-content">Tu Historia</div>
+                    </div>
+                    <div class="step active">
+                        <span>2</span>
+                        <div class="step-content">Elige tu Libro</div>
+                    </div>
+                </div>
+
+                <h2 style="margin-bottom: 20px;">Elige tu libro</h2>
+                <p style="color: var(--color-text-light); margin-bottom: 25px;">
+                    Un trueque es un diálogo. Elige un libro que sea una respuesta digna.
+                </p>
+
+                <div class="book-selector" id="bookSelector">
+                    <!-- 示例图书选项 -->
+                    <div class="book-option" onclick="selectBook(this)">
+                        <img src="https://images-na.ssl-images-amazon.com/images/I/71QKQ9KJZJL.jpg" alt="Libro">
+                        <p style="margin-top: 10px; font-size: 14px;">La casa de los espíritus</p>
+                    </div>
+                    <div class="book-option" onclick="selectBook(this)">
+                        <img src="https://images-na.ssl-images-amazon.com/images/I/81Y5Z8KJZJL.jpg" alt="Libro">
+                        <p style="margin-top: 10px; font-size: 14px;">Rayuela</p>
+                    </div>
+                    <div class="book-option" onclick="selectBook(this)">
+                        <img src="https://images-na.ssl-images-amazon.com/images/I/81dQwQlmAXL.jpg" alt="Libro">
+                        <p style="margin-top: 10px; font-size: 14px;">Cien años de soledad</p>
+                    </div>
+                </div>
+
+                <div class="modal-actions">
+                    <button class="btn btn-secondary" onclick="prevStep(1)">Atrás</button>
+                    <button class="btn btn-primary" onclick="submitExchange()">Enviar Solicitud</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="{{ url_for('static', filename='js/book_detail.js') }}"></script>
+</body>
+</html>
+

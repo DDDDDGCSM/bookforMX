@@ -1,0 +1,59 @@
+========================================
+BookForMX 立即部署 - 复制执行
+========================================
+
+【方法一：使用自动化脚本（推荐）】
+
+cd "/Users/a58/cursor/归档/OK 调研/bookforMX"
+./立即部署.sh
+
+或者：
+
+./一键部署.sh
+
+========================================
+
+【方法二：手动执行命令】
+
+# 1. 进入目录
+cd "/Users/a58/cursor/归档/OK 调研/bookforMX"
+
+# 2. 初始化Git（如果还没有）
+git init
+git branch -M main
+
+# 3. 添加并提交
+git add .
+git commit -m "Deploy: BookForMX"
+
+# 4. 创建GitHub仓库（浏览器）
+# 访问: https://github.com/new
+# 仓库名: bookforMX
+# 不要勾选任何选项
+# 点击: Create repository
+
+# 5. 连接并推送（替换YOUR_USERNAME）
+git remote add origin https://github.com/YOUR_USERNAME/bookforMX.git
+git push -u origin main
+
+# 6. 在Vercel部署（浏览器）
+# 访问: https://vercel.com/new
+# 导入: bookforMX
+# 点击: Deploy
+
+========================================
+
+【如果遇到问题】
+
+1. Git push 需要认证：
+   - 访问: https://github.com/settings/tokens
+   - 生成 Personal Access Token
+   - 使用 token 作为密码
+
+2. 查看详细指南：
+   - DEPLOY_VERCEL.md
+   - 部署进度.md
+
+========================================
+
+
