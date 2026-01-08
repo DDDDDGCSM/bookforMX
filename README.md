@@ -1,123 +1,111 @@
-# BookForMX - 墨西哥图书交换平台
+# 📚 BookForMX - 墨西哥图书交换平台
 
-一个以故事为核心的图书交换社区平台，专为墨西哥市场设计。
+一个温暖的图书交换社区，让每本书找到新的主人。
 
-## 🌐 在线访问
+## ✨ 功能特性
 
-部署到 Vercel 后，访问链接将自动生成：
-- **主站点**: `https://your-project.vercel.app`
+- 📖 **20本精选图书**：每本书都有独特的故事
+- 💬 **故事分享**：了解每本书背后的情感
+- 🤝 **交换申请**：简单的申请流程
+- 📱 **移动端适配**：完美支持手机访问
+- 💬 **WhatsApp 集成**：直接联系交换伙伴
+- 🌐 **西班牙语界面**：符合本地表达习惯
 
-## 📊 功能特性
+## 🚀 快速部署到 Vercel
 
-- ✅ **单页面设计** - 所有功能在一个页面完成
-- ✅ **图书浏览** - 左右箭头切换，查看20本精选图书
-- ✅ **快速换书** - 上传图片+填写故事，一键申请交换
-- ✅ **WhatsApp 联系** - 提交后直接联系交换人
-- ✅ **历史记录** - 左右滑动查看成功交换记录
-- ✅ **分享功能** - 一键分享到社交平台
-- ✅ **移动适配** - 完美支持手机端
+### 方法一：网页部署（推荐，3分钟完成）
 
-## 🚀 快速开始
+1. **访问**: https://vercel.com/new
+2. **使用 GitHub 登录**
+3. **导入仓库**: 选择 `DDDDDGCSM/bookforMX`
+4. **点击**: "Deploy"（保持默认设置）
+5. **等待**: 1-2 分钟
+6. **完成**: 获得部署链接
 
-### 本地运行
+详细步骤请查看：[快速部署指南.md](快速部署指南.md)
+
+### 方法二：使用 Vercel CLI
 
 ```bash
-# 安装依赖
-pip install -r requirements.txt
+# 安装 Vercel CLI
+npm install -g vercel
 
-# 启动服务
-python app.py
+# 登录
+vercel login
+
+# 部署
+vercel
 ```
-
-访问：http://localhost:5000
-
-### 部署到 Vercel
-
-详细步骤请查看：`DEPLOY_VERCEL.md`
-
-**快速部署**：
-1. 推送代码到 GitHub
-2. 在 Vercel 导入项目
-3. 自动部署完成
-
-## 📱 功能说明
-
-### 主要功能
-
-1. **浏览图书**
-   - 使用 ◀ ▶ 箭头切换20本图书
-   - 每本书都有真实的"放手理由"故事
-   - 显示用户信息和信任徽章
-
-2. **申请交换**
-   - 点击底部"Solicitar Intercambio"按钮
-   - 上传你的图书照片
-   - 填写为什么想要这本书（至少20字）
-   - 提交后显示 WhatsApp 联系方式
-
-3. **WhatsApp 联系**
-   - 提交交换申请后，显示交换人 WhatsApp
-   - 点击图标直接跳转到 WhatsApp
-   - 号码：+971 50 921 6685
-
-4. **历史记录**
-   - 页面底部展示成功交换记录
-   - 左右滑动查看
-   - 日期显示为最近一个月
-
-5. **分享功能**
-   - 右上角分享按钮
-   - 分享内容包含书名、作者、故事、链接
-   - 支持原生分享（移动端）
-
-## 🎨 设计特色
-
-- 温暖的牛皮纸色背景（#F5E6D3）
-- 墨西哥文化元素（仙人掌、猫头鹰等）
-- 响应式设计，完美适配手机
-- 流畅的交互动画
 
 ## 📁 项目结构
 
 ```
 bookforMX/
-├── app.py                 # Flask 后端应用
-├── requirements.txt       # Python 依赖
-├── vercel.json           # Vercel 部署配置
-├── templates/
-│   └── index.html        # 主页面（单页面应用）
-├── static/               # 静态资源（可选）
-└── README.md            # 项目说明
+├── app.py              # Flask 后端应用
+├── requirements.txt     # Python 依赖
+├── vercel.json         # Vercel 配置
+├── templates/          # HTML 模板
+│   └── index.html      # 主页面
+└── static/             # 静态资源
+    ├── css/
+    │   └── style.css   # 样式文件
+    └── js/             # JavaScript 文件
 ```
 
-## 🔧 技术栈
+## 🛠️ 本地开发
 
-- **后端**: Flask (Python)
-- **前端**: HTML5, CSS3, JavaScript (Vanilla)
+### 安装依赖
+
+```bash
+pip install -r requirements.txt
+```
+
+### 运行应用
+
+```bash
+python3 app.py
+```
+
+访问: http://localhost:5000
+
+## 📋 技术栈
+
+- **后端**: Flask 3.0.0
+- **前端**: HTML, CSS, JavaScript
 - **部署**: Vercel
-- **数据库**: 模拟数据（可扩展）
+- **语言**: 西班牙语
 
-## 📝 待扩展功能
+## 🌐 部署后访问
 
-- [ ] 数据库集成（PostgreSQL/MySQL）
-- [ ] 用户认证系统
-- [ ] 图片上传到云存储
-- [ ] 消息通知系统
-- [ ] 搜索功能
+部署成功后，您将获得一个 Vercel 链接，例如：
+```
+https://bookformx.vercel.app
+```
 
-## 🌍 本地化
+## 📝 更新部署
 
-- **语言**: 西班牙语（墨西哥）
-- **文化元素**: 仙人掌🌵、猫头鹰🦉、阿兹特克纹样📖
-- **信任徽章**: Lector Novato、Compañero Confiable、Bibliófilo Truequero
+修改代码后，推送到 GitHub 即可自动重新部署：
 
-## 📞 支持
+```bash
+git add .
+git commit -m "更新说明"
+git push origin main
+```
 
-如有问题，请查看：
-- `DEPLOY_VERCEL.md` - 部署指南
-- `测试指南.md` - 功能测试说明
-- `功能完成清单.md` - 功能列表
+Vercel 会自动检测并重新部署（约 1-2 分钟）
+
+## 📚 相关文档
+
+- [快速部署指南.md](快速部署指南.md) - 详细的部署步骤
+- [VERCEL_DEPLOY_GUIDE.md](VERCEL_DEPLOY_GUIDE.md) - Vercel 部署完整指南
+
+## 🎯 下一步
+
+1. 部署到 Vercel
+2. 测试所有功能
+3. 收集用户反馈
+4. 持续优化体验
 
 ---
 
-**BookForMX - Intercambia libros, comparte historias** 📚
+**祝您部署顺利！** 🚀
