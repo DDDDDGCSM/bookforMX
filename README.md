@@ -11,29 +11,48 @@
 - 💬 **WhatsApp 集成**：直接联系交换伙伴
 - 🌐 **西班牙语界面**：符合本地表达习惯
 
-## 🚀 快速部署到 Vercel
+## 🚀 快速部署
 
-### 方法一：网页部署（推荐，3分钟完成）
+### 方法一：自动化部署（推荐）
 
-1. **访问**: https://vercel.com/new
-2. **使用 GitHub 登录**
-3. **导入仓库**: 选择 `DDDDDGCSM/bookforMX`
-4. **点击**: "Deploy"（保持默认设置）
-5. **等待**: 1-2 分钟
-6. **完成**: 获得部署链接
+#### 一键部署（半自动）
+
+```bash
+python3 一键部署.py your_github_token
+```
+
+自动完成：
+- ✅ 推送到 GitHub
+- ✅ 提供 Vercel 部署指引
+
+#### 完全自动部署
+
+```bash
+python3 完全自动部署.py github_token vercel_token
+```
+
+自动完成：
+- ✅ 推送到 GitHub
+- ✅ 创建 Vercel 项目
+- ✅ 触发部署
+- ✅ 完全无需手动操作
+
+详细说明请查看：[自动化部署说明.md](自动化部署说明.md)
+
+### 方法二：网页部署
+
+1. 访问: https://vercel.com/new
+2. 使用 GitHub 登录
+3. 导入仓库: `DDDDDGCSM/bookforMX`
+4. 点击: "Deploy"
 
 详细步骤请查看：[快速部署指南.md](快速部署指南.md)
 
-### 方法二：使用 Vercel CLI
+### 方法三：使用 Vercel CLI
 
 ```bash
-# 安装 Vercel CLI
 npm install -g vercel
-
-# 登录
 vercel login
-
-# 部署
 vercel
 ```
 
@@ -41,15 +60,17 @@ vercel
 
 ```
 bookforMX/
-├── app.py              # Flask 后端应用
-├── requirements.txt     # Python 依赖
-├── vercel.json         # Vercel 配置
-├── templates/          # HTML 模板
-│   └── index.html      # 主页面
-└── static/             # 静态资源
+├── app.py                    # Flask 后端应用
+├── requirements.txt          # Python 依赖
+├── vercel.json              # Vercel 配置
+├── 一键部署.py              # 半自动部署脚本
+├── 完全自动部署.py          # 全自动部署脚本
+├── templates/               # HTML 模板
+│   └── index.html          # 主页面
+└── static/                 # 静态资源
     ├── css/
-    │   └── style.css   # 样式文件
-    └── js/             # JavaScript 文件
+    │   └── style.css       # 样式文件
+    └── js/                 # JavaScript 文件
 ```
 
 ## 🛠️ 本地开发
@@ -84,24 +105,27 @@ https://bookformx.vercel.app
 
 ## 📝 更新部署
 
-修改代码后，推送到 GitHub 即可自动重新部署：
+修改代码后，只需运行部署脚本：
 
 ```bash
-git add .
-git commit -m "更新说明"
-git push origin main
+# 使用一键部署
+python3 一键部署.py your_token
+
+# 或使用完全自动部署
+python3 完全自动部署.py github_token vercel_token
 ```
 
 Vercel 会自动检测并重新部署（约 1-2 分钟）
 
 ## 📚 相关文档
 
-- [快速部署指南.md](快速部署指南.md) - 详细的部署步骤
-- [VERCEL_DEPLOY_GUIDE.md](VERCEL_DEPLOY_GUIDE.md) - Vercel 部署完整指南
+- [自动化部署说明.md](自动化部署说明.md) - 自动化部署详细说明
+- [快速部署指南.md](快速部署指南.md) - 网页部署步骤
+- [VERCEL_DEPLOY_GUIDE.md](VERCEL_DEPLOY_GUIDE.md) - Vercel 完整指南
 
 ## 🎯 下一步
 
-1. 部署到 Vercel
+1. 运行自动化部署脚本
 2. 测试所有功能
 3. 收集用户反馈
 4. 持续优化体验
