@@ -101,6 +101,14 @@
                 <div class="metric-label">WhatsApp 点击次数</div>
                 <div class="metric-value">{{ stats.whatsapp_click_count }}</div>
             </div>
+            <div class="metric">
+                <div class="metric-label">书籍总浏览次数</div>
+                <div class="metric-value">{{ stats.book_view_count }}</div>
+            </div>
+            <div class="metric">
+                <div class="metric-label">被浏览过的不同书本数</div>
+                <div class="metric-value">{{ stats.book_view_unique_books }}</div>
+            </div>
         </div>
     </div>
 
@@ -137,10 +145,9 @@
                 <tr>
                     <th>时间</th>
                     <th>书名</th>
-                    <th>匿名ID</th>
+                    <th>IP</th>
                     <th>故事摘要</th>
                     <th>是否有图片</th>
-                    <th>IP(截断)</th>
                 </tr>
             </thead>
             <tbody>
@@ -148,10 +155,9 @@
                 <tr>
                     <td>{{ item.created_at }}</td>
                     <td>{{ item.book_title or ('#' ~ item.book_id) }}</td>
-                    <td>{{ item.anon_id or '-' }}</td>
+                    <td>{{ item.ip or '-' }}</td>
                     <td>{{ item.story_snippet }}</td>
                     <td>{{ '是' if item.has_image else '否' }}</td>
-                    <td>{{ item.ip or '-' }}</td>
                 </tr>
                 {% else %}
                 <tr>

@@ -1027,8 +1027,10 @@
             displayExchanges();
             updateCounter();
             // 记录页面浏览
-            trackEvent('page_view');
+            trackEvent('page_view', {});
         }
+
+        let lastTrackedBookId = null;
 
         // 显示当前图书
         function displayBook(index) {
@@ -1038,6 +1040,12 @@
             const book = books[index];
             const bookDisplay = document.getElementById('bookDisplay');
             
+            // 记录书籍浏览（去重，避免重复刷同一本）
+            if (book && book.id !== lastTrackedBookId) {
+                trackEvent('book_view', { bookId: book.id, extra: {} });
+                lastTrackedBookId = book.id;
+            }
+
             // WhatsApp 图标始终显示
             bookDisplay.innerHTML = `
                 <div class="book-card">

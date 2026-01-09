@@ -169,7 +169,7 @@ def count_events(event_type: str) -> int:
         return sum(1 for e in storage['events'] if e['event_type'] == event_type)
 
 def get_distinct_anon_ids(event_type: str) -> set:
-    """获取独立访客 ID 集合"""
+    """（旧）获取独立访客 ID 集合，暂保留以兼容后续升级"""
     storage = get_analytics_storage()
     with storage['lock']:
         anon_ids = set()
@@ -177,6 +177,17 @@ def get_distinct_anon_ids(event_type: str) -> set:
             if e['event_type'] == event_type and e.get('anon_id'):
                 anon_ids.add(e['anon_id'])
         return anon_ids
+
+
+def get_distinct_ips(event_type: str) -> set:
+    """获取独立访客 IP 集合（用于 UV 统计）"""
+    storage = get_analytics_storage()
+    with storage['lock']:
+        ips = set()
+        for e in storage['events']:
+            if e['event_type'] == event_type and e.get('ip'):
+                ips.add(e['ip'])
+        return ips
 
 def get_daily_stats(days: int = 30):
     """获取按天统计的 PV/UV"""
@@ -187,8 +198,8 @@ def get_daily_stats(days: int = 30):
             if e['event_type'] == 'page_view':
                 day = e['created_at'][:10]  # YYYY-MM-DD
                 daily[day]['pv'] += 1
-                if e.get('anon_id'):
-                    daily[day]['uv'].add(e['anon_id'])
+                if e.get('ip'):
+                    daily[day]['uv'].add(e['ip'])
         
         # 转换为列表格式
         result = []
@@ -330,7 +341,7 @@ def api_track_event():
 
 @app.route('/admin/stats')
 def admin_stats():
-    """简单后台：PV/UV 与关键行为统计 + 最近提交明细"""
+    """简单后台：PV/UV 与关键行为统计 + 最近提交明细 + 书籍浏览数据"""
     # Token 验证：优先使用环境变量，否则使用硬编码的默认 token
     admin_token = os.environ.get('ADMIN_TOKEN', '20260109ForMXG')
     req_token = request.args.get('token')
@@ -419,7 +430,14 @@ def admin_stats():
 
     # 使用内存存储获取统计数据
     total_pv = count_events('page_view')
-    total_uv = len(get_distinct_anon_ids('page_view'))
+    # UV 使用 IP 维度，便于内部核对
+    total_uv = len(get_distinct_ips('page_view'))
+    
+    # 书籍浏览统计
+    total_book_views = count_events('book_view')
+    # 被浏览过的不同书本数
+    book_view_events = get_events('book_view')
+    viewed_book_ids = {e.get('book_id') for e in book_view_events if e.get('book_id') is not None}
     
     stats = {
         'total_pv': total_pv,
@@ -427,6 +445,8 @@ def admin_stats():
         'share_count': count_events('share'),
         'exchange_request_count': count_events('exchange_request'),
         'whatsapp_click_count': count_events('whatsapp_click'),
+        'book_view_count': total_book_views,
+        'book_view_unique_books': len(viewed_book_ids),
     }
     
     # 按天聚合 PV/UV（最近30天）
@@ -448,17 +468,15 @@ def admin_stats():
         except Exception:
             book_title = None
         
-        anon = e.get('anon_id') or ''
-        anon_short = anon[:6] + '...' if anon else ''
         recent_submits.append({
             'created_at': e.get('created_at'),
             'book_id': e.get('book_id'),
             'book_title': book_title,
-            'anon_id': anon_short,
             'story_snippet': extra.get('story_snippet') or '',
             'story_length': extra.get('story_length') or 0,
             'has_image': bool(extra.get('has_image')),
-            'ip': (e.get('ip') or '')[:12] + '...' if e.get('ip') else ''
+            # 内部使用完整 IP，便于校验
+            'ip': e.get('ip') or ''
         })
 
     # 传递 token 到模板，用于生成带 token 的链接
