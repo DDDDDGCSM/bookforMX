@@ -187,7 +187,14 @@ def api_exchange_request():
 @app.route('/static/<path:path>')
 def send_static(path):
     """提供静态文件"""
-    return send_from_directory('static', path)
+    import urllib.parse
+    # 处理URL编码的中文路径
+    decoded_path = urllib.parse.unquote(path)
+    try:
+        return send_from_directory('static', decoded_path)
+    except Exception as e:
+        # 如果失败，尝试原始路径
+        return send_from_directory('static', path)
 
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5000))
