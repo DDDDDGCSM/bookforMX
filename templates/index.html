@@ -978,11 +978,56 @@
             }
         }
 
+        // 生成或获取匿名用户ID（用于UV统计）
+        function getAnonId() {
+            try {
+                const key = 'td_anon_id';
+                let id = localStorage.getItem(key);
+                if (!id) {
+                    if (window.crypto && crypto.randomUUID) {
+                        id = crypto.randomUUID();
+                    } else {
+                        id = 'td_' + Math.random().toString(36).substring(2) + Date.now().toString(36);
+                    }
+                    localStorage.setItem(key, id);
+                }
+                return id;
+            } catch (e) {
+                return null;
+            }
+        }
+
+        // 通用埋点函数
+        function trackEvent(eventType, payload = {}) {
+            try {
+                const body = {
+                    event_type: eventType,
+                    anon_id: getAnonId(),
+                    book_id: payload.bookId || null,
+                    extra: payload.extra || {}
+                };
+
+                fetch('/api/track', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(body)
+                }).catch(() => {
+                    // 忽略埋点错误，避免影响用户体验
+                });
+            } catch (e) {
+                // 静默失败
+            }
+        }
+
         // 初始化
         function init() {
             displayBook(0);
             displayExchanges();
             updateCounter();
+            // 记录页面浏览
+            trackEvent('page_view');
         }
 
         // 显示当前图书
@@ -1170,12 +1215,21 @@
                 story: story,
                 image: uploadedImage
             });
+
+            // 记录提交交换事件
+            trackEvent('exchange_request', {
+                bookId: books[currentBookIndex].id
+            });
         }
 
         // 打开WhatsApp
         function openWhatsApp(bookId) {
             const message = encodeURIComponent(`Hola, me interesa intercambiar el libro "${books[currentBookIndex].title}"`);
             window.open(`https://wa.me/971509216685?text=${message}`, '_blank');
+            // 记录WhatsApp点击
+            trackEvent('whatsapp_click', {
+                bookId: books[currentBookIndex].id
+            });
         }
 
         // 分享功能
@@ -1188,11 +1242,20 @@
                     title: `📚 ${book.title}`,
                     text: shareText,
                     url: window.location.href
+                }).then(() => {
+                    // 仅在分享成功回调中记录
+                    trackEvent('share', {
+                        bookId: book.id
+                    });
                 }).catch(err => console.log('Error sharing', err));
             } else {
                 // 降级方案：复制到剪贴板
                 navigator.clipboard.writeText(shareText).then(() => {
                     alert('¡Texto copiado! Compártelo donde quieras.');
+                    // 复制成功也认为是一次分享行为
+                    trackEvent('share', {
+                        bookId: book.id
+                    });
                 }).catch(() => {
                     // 最终降级：显示文本让用户手动复制
                     prompt('Copia este texto para compartir:', shareText);

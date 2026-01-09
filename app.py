@@ -10,6 +10,8 @@ import os
 import json
 from datetime import datetime
 from pathlib import Path
+import sqlite3
+from typing import Optional, Dict, Any
 
 app = Flask(__name__, static_folder='static', static_url_path='/static')
 CORS(app)
@@ -107,6 +109,49 @@ SAMPLE_EXCHANGES = [
     }
 ]
 
+# =========================
+# 简单埋点 & 统计存储（SQLite）
+# =========================
+
+BASE_DIR = Path(__file__).resolve().parent
+ANALYTICS_DB_PATH = BASE_DIR / "analytics.db"
+
+
+def get_db_connection() -> sqlite3.Connection:
+    """获取 SQLite 连接（如果不存在则创建）"""
+    conn = sqlite3.connect(ANALYTICS_DB_PATH)
+    conn.row_factory = sqlite3.Row
+    return conn
+
+
+def init_analytics_db() -> None:
+    """初始化埋点数据表"""
+    conn = get_db_connection()
+    try:
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS events (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                event_type TEXT NOT NULL,
+                book_id INTEGER,
+                anon_id TEXT,
+                extra TEXT,
+                ip TEXT,
+                user_agent TEXT,
+                created_at TEXT NOT NULL
+            )
+            """
+        )
+        conn.commit()
+    finally:
+        conn.close()
+
+
+@app.before_first_request
+def setup_analytics():
+    """应用启动时初始化统计库"""
+    init_analytics_db()
+
 @app.route('/')
 def index():
     """主页 - 单页面应用"""
@@ -184,6 +229,111 @@ def api_exchange_request():
         'success': True,
         'message': 'Solicitud de intercambio enviada exitosamente'
     })
+
+
+@app.route('/api/track', methods=['POST'])
+def api_track_event():
+    """前端埋点上报接口
+
+    记录：
+    - event_type: page_view / share / exchange_request / whatsapp_click 等
+    - book_id: 相关图书（可选）
+    - anon_id: 前端生成的匿名用户ID，用于 UV 统计
+    - extra: 其他JSON数据
+    """
+    data: Dict[str, Any] = request.get_json(silent=True) or {}
+    event_type = (data.get('event_type') or '').strip()
+
+    if not event_type:
+        return jsonify({'success': False, 'error': 'event_type is required'}), 400
+
+    book_id = data.get('book_id')
+    anon_id = (data.get('anon_id') or '').strip() or None
+    extra = data.get('extra') or {}
+
+    # 安全地序列化 extra
+    try:
+        extra_str = json.dumps(extra, ensure_ascii=False)
+    except Exception:
+        extra_str = '{}'
+
+    ip = request.headers.get('X-Forwarded-For', request.remote_addr or '')
+    user_agent = request.headers.get('User-Agent', '')
+    created_at = datetime.utcnow().isoformat()
+
+    conn = get_db_connection()
+    try:
+        conn.execute(
+            """
+            INSERT INTO events (event_type, book_id, anon_id, extra, ip, user_agent, created_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
+            """,
+            (event_type, book_id, anon_id, extra_str, ip, user_agent, created_at),
+        )
+        conn.commit()
+    finally:
+        conn.close()
+
+    return jsonify({'success': True})
+
+
+@app.route('/admin/stats')
+def admin_stats():
+    """简单后台：PV/UV 与关键行为统计"""
+    # 简单保护：可选 token
+    admin_token = os.environ.get('ADMIN_TOKEN')
+    req_token = request.args.get('token')
+    if admin_token and req_token != admin_token:
+        return "Forbidden", 403
+
+    conn = get_db_connection()
+    try:
+        cur = conn.cursor()
+        # PV: 所有 page_view 事件
+        cur.execute("SELECT COUNT(*) FROM events WHERE event_type = 'page_view'")
+        total_pv = cur.fetchone()[0]
+
+        # UV: 不同 anon_id 数
+        cur.execute(
+            "SELECT COUNT(DISTINCT anon_id) FROM events WHERE event_type = 'page_view' AND anon_id IS NOT NULL"
+        )
+        total_uv = cur.fetchone()[0]
+
+        # 上传、分享、点击等
+        def count_event(t: str) -> int:
+            cur.execute("SELECT COUNT(*) FROM events WHERE event_type = ?", (t,))
+            return cur.fetchone()[0]
+
+        stats = {
+            'total_pv': total_pv,
+            'total_uv': total_uv,
+            'share_count': count_event('share'),
+            'exchange_request_count': count_event('exchange_request'),
+            'whatsapp_click_count': count_event('whatsapp_click'),
+        }
+
+        # 按天聚合 PV/UV（最近30天）
+        cur.execute(
+            """
+            SELECT substr(created_at, 1, 10) AS day,
+                   COUNT(*) AS pv,
+                   COUNT(DISTINCT anon_id) AS uv
+            FROM events
+            WHERE event_type = 'page_view'
+            GROUP BY day
+            ORDER BY day DESC
+            LIMIT 30
+            """
+        )
+        daily_rows = cur.fetchall()
+        daily = [
+            {'day': row['day'], 'pv': row['pv'], 'uv': row['uv']} for row in daily_rows
+        ]
+
+    finally:
+        conn.close()
+
+    return render_template('admin_stats.html', stats=stats, daily=daily)
 
 @app.route('/static/<path:path>')
 def send_static(path):
