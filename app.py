@@ -280,11 +280,91 @@ def api_track_event():
 @app.route('/admin/stats')
 def admin_stats():
     """简单后台：PV/UV 与关键行为统计"""
-    # 简单保护：可选 token
-    admin_token = os.environ.get('ADMIN_TOKEN')
+    # Token 验证：优先使用环境变量，否则使用硬编码的默认 token
+    admin_token = os.environ.get('ADMIN_TOKEN', '20260109ForMXG')
     req_token = request.args.get('token')
-    if admin_token and req_token != admin_token:
-        return "Forbidden", 403
+    
+    if not req_token or req_token != admin_token:
+        return """
+        <!DOCTYPE html>
+        <html lang="es-MX">
+        <head>
+            <meta charset="UTF-8">
+            <title>Acceso Restringido - Trueque Digital</title>
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <style>
+                body {
+                    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+                    background: #F5E6D3;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    min-height: 100vh;
+                    margin: 0;
+                }
+                .login-box {
+                    background: white;
+                    border-radius: 15px;
+                    padding: 40px;
+                    box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+                    max-width: 400px;
+                    width: 90%;
+                }
+                h1 {
+                    color: #2C5F2D;
+                    margin-bottom: 20px;
+                    text-align: center;
+                }
+                .error {
+                    color: #d32f2f;
+                    background: #ffebee;
+                    padding: 12px;
+                    border-radius: 8px;
+                    margin-bottom: 20px;
+                    font-size: 14px;
+                    text-align: center;
+                }
+                input {
+                    width: 100%;
+                    padding: 12px;
+                    border: 2px solid #E8D5B7;
+                    border-radius: 8px;
+                    font-size: 16px;
+                    margin-bottom: 20px;
+                    box-sizing: border-box;
+                }
+                input:focus {
+                    outline: none;
+                    border-color: #2C5F2D;
+                }
+                button {
+                    width: 100%;
+                    padding: 12px;
+                    background: #2C5F2D;
+                    color: white;
+                    border: none;
+                    border-radius: 8px;
+                    font-size: 16px;
+                    font-weight: 600;
+                    cursor: pointer;
+                    transition: background 0.3s;
+                }
+                button:hover {
+                    background: #4A7C59;
+                }
+            </style>
+        </head>
+        <body>
+            <div class="login-box">
+                <h1>🔒 Acceso Restringido</h1>
+                <form method="GET" action="/admin/stats">
+                    <input type="password" name="token" placeholder="Ingresa el token de acceso" required autofocus>
+                    <button type="submit">Acceder</button>
+                </form>
+            </div>
+        </body>
+        </html>
+        """, 403
 
     conn = get_db_connection()
     try:
