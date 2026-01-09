@@ -252,7 +252,7 @@ def send_static(path):
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5000))
     print('=' * 60)
-    print('🚀 BookForMX - 墨西哥图书交换平台')
+    print('🚀 Trueque Digital - 墨西哥图书交换平台')
     print('=' * 60)
     print(f'✅ 服务启动成功')
     print(f'📱 访问地址: http://localhost:{port}')
