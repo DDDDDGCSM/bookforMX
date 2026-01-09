@@ -4,13 +4,14 @@ BookForMX - 墨西哥图书交换平台
 Flask 后端应用
 """
 
-from flask import Flask, render_template, jsonify, request, send_from_directory
+from flask import Flask, render_template, jsonify, request, send_from_directory, send_file
 from flask_cors import CORS
 import os
 import json
 from datetime import datetime
+from pathlib import Path
 
-app = Flask(__name__)
+app = Flask(__name__, static_folder='static', static_url_path='/static')
 CORS(app)
 
 # 模拟数据（实际应用中应该从数据库获取）
@@ -188,13 +189,33 @@ def api_exchange_request():
 def send_static(path):
     """提供静态文件"""
     import urllib.parse
+    from flask import abort
+    
     # 处理URL编码的中文路径
     decoded_path = urllib.parse.unquote(path)
+    
+    # 构建完整路径
+    static_dir = Path(app.static_folder or 'static')
+    file_path = static_dir / decoded_path
+    
+    # 安全检查：确保文件在static目录内
     try:
-        return send_from_directory('static', decoded_path)
-    except Exception as e:
-        # 如果失败，尝试原始路径
-        return send_from_directory('static', path)
+        file_path = file_path.resolve()
+        static_dir_resolved = static_dir.resolve()
+        if not str(file_path).startswith(str(static_dir_resolved)):
+            abort(403)
+    except:
+        abort(404)
+    
+    # 检查文件是否存在
+    if not file_path.exists() or not file_path.is_file():
+        # 尝试原始路径
+        file_path = static_dir / path
+        if not file_path.exists() or not file_path.is_file():
+            abort(404)
+    
+    # 返回文件
+    return send_file(file_path)
 
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5000))
