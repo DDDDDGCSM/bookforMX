@@ -241,7 +241,10 @@ def send_static(path):
         elif file_path.suffix.lower() == '.png':
             mimetype = 'image/png'
         
-        return send_file(file_path, mimetype=mimetype)
+        # 添加缓存头，优化加载速度
+        response = send_file(file_path, mimetype=mimetype)
+        response.headers['Cache-Control'] = 'public, max-age=31536000, immutable'
+        return response
     else:
         # 如果所有路径都失败，返回404
         abort(404)

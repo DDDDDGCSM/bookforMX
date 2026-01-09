@@ -863,23 +863,58 @@
             return dates;
         }
 
-        // 历史交换记录（最近一个月）
+        // 历史交换记录（最近一个月）- 使用本地图片
         const recentDates = getRecentDates();
         const exchanges = [
             {
-                book1: { title: 'Cien años de soledad', cover: 'https://m.media-amazon.com/images/I/81dQwQlmAXL._SY466_.jpg', user: 'María' },
-                book2: { title: 'La casa de los espíritus', cover: 'https://m.media-amazon.com/images/I/71QKQ9KJZJL._SY466_.jpg', user: 'Luis' },
+                book1: { title: 'Cien años de soledad', cover: '/static/libros-mexico/cien-anos-soledad.jpg', user: 'María' },
+                book2: { title: 'Pedro Páramo', cover: '/static/libros-mexico/pedro-paramo.jpeg', user: 'Carlos' },
                 date: recentDates[0]
             },
             {
-                book1: { title: 'Pedro Páramo', cover: 'https://m.media-amazon.com/images/I/81Y5Z8KJZJL._SY466_.jpg', user: 'Carlos' },
-                book2: { title: 'Rayuela', cover: 'https://m.media-amazon.com/images/I/81Y5Z8KJZJL._SY466_.jpg', user: 'Sofía' },
+                book1: { title: 'Los detectives salvajes', cover: '/static/libros-mexico/detectives-salvajes.png', user: 'Luis' },
+                book2: { title: 'Narrativa completa de Juan Rulfo', cover: '/static/libros-mexico/narrativa-completa.jpg', user: 'Sofía' },
                 date: recentDates[1]
             },
             {
-                book1: { title: 'Del amor y otros demonios', cover: 'https://m.media-amazon.com/images/I/81dQwQlmAXL._SY466_.jpg', user: 'Ana' },
-                book2: { title: 'El amor en los tiempos del cólera', cover: 'https://m.media-amazon.com/images/I/81dQwQlmAXL._SY466_.jpg', user: 'Diego' },
+                book1: { title: 'Del amor y otros demonios', cover: '/static/libros-mexico/amor-otros-demonios.jpg', user: 'Ana' },
+                book2: { title: 'La muerte de Artemio Cruz', cover: '/static/libros-mexico/muerte-artemio-cruz.png', user: 'Diego' },
                 date: recentDates[2]
+            },
+            {
+                book1: { title: 'Como agua para chocolate', cover: '/static/libros-mexico/agua-chocolate.jpg', user: 'Isabel' },
+                book2: { title: 'El principito', cover: '/static/libros-mexico/principito.png', user: 'Patricia' },
+                date: recentDates[0] || '15 Ene'
+            },
+            {
+                book1: { title: 'Papeles falsos', cover: '/static/libros-mexico/papeles-falsos.png', user: 'Elena' },
+                book2: { title: 'La historia de mis dientes', cover: '/static/libros-mexico/historia-mis-dientes.png', user: 'Fernando' },
+                date: recentDates[1] || '22 Ene'
+            },
+            {
+                book1: { title: 'Piedra de sol', cover: '/static/libros-mexico/piedra-sol.png', user: 'Paula' },
+                book2: { title: 'El libro de arena', cover: '/static/libros-mexico/libro-arena.png', user: 'Ricardo' },
+                date: recentDates[2] || '28 Ene'
+            },
+            {
+                book1: { title: 'La reina del sur', cover: '/static/libros-mexico/reina-del-sur.png', user: 'Natalia' },
+                book2: { title: 'Los rituales del caos', cover: '/static/libros-mexico/rituales-caos.png', user: 'Lucía' },
+                date: '5 Ene'
+            },
+            {
+                book1: { title: 'La noche de Tlatelolco', cover: '/static/libros-mexico/noche-tlatelolco.png', user: 'Carmen' },
+                book2: { title: 'Hábitos atómicos', cover: '/static/libros-mexico/habitos-atomicos.png', user: 'Javier' },
+                date: '12 Ene'
+            },
+            {
+                book1: { title: 'La región más transparente', cover: '/static/libros-mexico/region-transparente.png', user: 'Roberto' },
+                book2: { title: 'Cien años de soledad', cover: '/static/libros-mexico/cien-anos-soledad.jpg', user: 'María' },
+                date: '19 Ene'
+            },
+            {
+                book1: { title: 'Pedro Páramo', cover: '/static/libros-mexico/pedro-paramo.jpeg', user: 'Carlos' },
+                book2: { title: 'Del amor y otros demonios', cover: '/static/libros-mexico/amor-otros-demonios.jpg', user: 'Sofía' },
+                date: '26 Ene'
             }
         ];
 
@@ -907,7 +942,7 @@
             bookDisplay.innerHTML = `
                 <div class="book-card">
                     <div class="book-header">
-                        <img src="${encodeURI(book.cover)}" alt="${book.title}" class="book-cover" onerror="this.src='https://via.placeholder.com/100x150/F5E6D3/3E2723?text=${encodeURIComponent(book.title.substring(0, 10))}'">
+                        <img src="${encodeURI(book.cover)}" alt="${book.title}" class="book-cover" loading="lazy" onerror="this.onerror=null; this.style.display='none';">
                         <div class="book-info">
                             <div class="book-title">${book.title}</div>
                             <div class="book-author">por ${book.author}</div>
@@ -976,13 +1011,13 @@
                 <div style="min-width: 280px; flex-shrink: 0; scroll-snap-align: start;">
                     <div class="exchange-item">
                         <div class="exchange-book">
-                            <img src="${encodeURI(exchange.book1.cover)}" alt="${exchange.book1.title}" onerror="this.src='https://via.placeholder.com/60x90/F5E6D3/3E2723?text=Libro'">
+                            <img src="${encodeURI(exchange.book1.cover)}" alt="${exchange.book1.title}" loading="lazy" onerror="this.onerror=null; this.style.display='none';">
                             <p>${exchange.book1.title}</p>
                             <p style="font-size: 10px; color: #6D4C41;">${exchange.book1.user}</p>
                         </div>
                         <div class="exchange-icon">🤝</div>
                         <div class="exchange-book">
-                            <img src="${encodeURI(exchange.book2.cover)}" alt="${exchange.book2.title}" onerror="this.src='https://via.placeholder.com/60x90/F5E6D3/3E2723?text=Libro'">
+                            <img src="${encodeURI(exchange.book2.cover)}" alt="${exchange.book2.title}" loading="lazy" onerror="this.onerror=null; this.style.display='none';">
                             <p>${exchange.book2.title}</p>
                             <p style="font-size: 10px; color: #6D4C41;">${exchange.book2.user}</p>
                         </div>
