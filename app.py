@@ -330,7 +330,7 @@ def api_track_event():
 
 @app.route('/admin/stats')
 def admin_stats():
-    """简单后台：PV/UV 与关键行为统计"""
+    """简单后台：PV/UV 与关键行为统计 + 最近提交明细"""
     # Token 验证：优先使用环境变量，否则使用硬编码的默认 token
     admin_token = os.environ.get('ADMIN_TOKEN', '20260109ForMXG')
     req_token = request.args.get('token')
@@ -432,8 +432,37 @@ def admin_stats():
     # 按天聚合 PV/UV（最近30天）
     daily = get_daily_stats(30)
 
+    # 最近提交明细（最多 50 条，按时间倒序）
+    recent_submits = []
+    events = get_events('exchange_request', limit=50)
+    for e in reversed(events):  # 最新的在前
+        extra = e.get('extra') or {}
+        book_title = None
+        try:
+            book_id = e.get('book_id')
+            if isinstance(book_id, int):
+                for b in SAMPLE_BOOKS:
+                    if b.get('id') == book_id:
+                        book_title = b.get('title')
+                        break
+        except Exception:
+            book_title = None
+        
+        anon = e.get('anon_id') or ''
+        anon_short = anon[:6] + '...' if anon else ''
+        recent_submits.append({
+            'created_at': e.get('created_at'),
+            'book_id': e.get('book_id'),
+            'book_title': book_title,
+            'anon_id': anon_short,
+            'story_snippet': extra.get('story_snippet') or '',
+            'story_length': extra.get('story_length') or 0,
+            'has_image': bool(extra.get('has_image')),
+            'ip': (e.get('ip') or '')[:12] + '...' if e.get('ip') else ''
+        })
+
     # 传递 token 到模板，用于生成带 token 的链接
-    return render_template('admin_stats.html', stats=stats, daily=daily, token=req_token)
+    return render_template('admin_stats.html', stats=stats, daily=daily, recent_submits=recent_submits, token=req_token)
 
 @app.route('/static/<path:path>')
 def send_static(path):

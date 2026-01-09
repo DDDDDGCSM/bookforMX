@@ -129,6 +129,38 @@
             </tbody>
         </table>
     </div>
+
+    <div class="card">
+        <h2>最近提交明细（最多 50 条）</h2>
+        <table>
+            <thead>
+                <tr>
+                    <th>时间</th>
+                    <th>书名</th>
+                    <th>匿名ID</th>
+                    <th>故事摘要</th>
+                    <th>是否有图片</th>
+                    <th>IP(截断)</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for item in recent_submits %}
+                <tr>
+                    <td>{{ item.created_at }}</td>
+                    <td>{{ item.book_title or ('#' ~ item.book_id) }}</td>
+                    <td>{{ item.anon_id or '-' }}</td>
+                    <td>{{ item.story_snippet }}</td>
+                    <td>{{ '是' if item.has_image else '否' }}</td>
+                    <td>{{ item.ip or '-' }}</td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="6" style="color:#6D4C41;">暂无提交记录</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
 </body>
 </html>
 

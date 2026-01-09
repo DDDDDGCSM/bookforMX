@@ -1209,16 +1209,21 @@
             // 重新显示当前图书以显示WhatsApp图标
             displayBook(currentBookIndex);
 
-            // 这里可以发送到后端
+            // 这里可以发送到后端（目前仅在控制台打印）
             console.log('Intercambio solicitado:', {
                 bookId: books[currentBookIndex].id,
                 story: story,
-                image: uploadedImage
+                image: '[imagen subida]'
             });
 
-            // 记录提交交换事件
+            // 记录提交交换事件（带上故事摘要等信息，方便后台查看）
             trackEvent('exchange_request', {
-                bookId: books[currentBookIndex].id
+                bookId: books[currentBookIndex].id,
+                extra: {
+                    story_snippet: story.substring(0, 120),
+                    story_length: story.length,
+                    has_image: !!uploadedImage
+                }
             });
         }
 
