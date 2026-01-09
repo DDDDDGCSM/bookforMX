@@ -147,10 +147,22 @@ def init_analytics_db() -> None:
         conn.close()
 
 
-@app.before_first_request
-def setup_analytics():
-    """应用启动时初始化统计库"""
-    init_analytics_db()
+# 应用启动时初始化统计库（兼容新旧 Flask 版本）
+try:
+    # Flask 2.2+ 使用 before_request
+    @app.before_request
+    def setup_analytics_once():
+        if not hasattr(app, '_analytics_initialized'):
+            init_analytics_db()
+            app._analytics_initialized = True
+except:
+    # Flask < 2.2 使用 before_first_request
+    @app.before_first_request
+    def setup_analytics():
+        init_analytics_db()
+
+# 确保在应用启动时初始化（兼容所有版本）
+init_analytics_db()
 
 @app.route('/')
 def index():
