@@ -190,32 +190,52 @@ def send_static(path):
     """提供静态文件"""
     import urllib.parse
     from flask import abort
+    import os
     
     # 处理URL编码的中文路径
     decoded_path = urllib.parse.unquote(path)
     
-    # 构建完整路径
-    static_dir = Path(app.static_folder or 'static')
-    file_path = static_dir / decoded_path
+    # 在Vercel环境下，静态文件可能在多个位置
+    # 尝试多个可能的路径
+    possible_dirs = [
+        Path(app.static_folder or 'static'),
+        Path('static'),
+        Path(os.getcwd()) / 'static',
+        Path('/var/task/static'),
+        Path('/vercel/path0/static'),
+    ]
     
-    # 安全检查：确保文件在static目录内
-    try:
-        file_path = file_path.resolve()
-        static_dir_resolved = static_dir.resolve()
-        if not str(file_path).startswith(str(static_dir_resolved)):
-            abort(403)
-    except:
+    file_path = None
+    for static_dir in possible_dirs:
+        if not static_dir.exists():
+            continue
+            
+        try:
+            file_path = static_dir / decoded_path
+            file_path = file_path.resolve()
+            static_dir_resolved = static_dir.resolve()
+            
+            # 安全检查：确保文件在static目录内
+            if not str(file_path).startswith(str(static_dir_resolved)):
+                continue
+                
+            # 检查文件是否存在
+            if file_path.exists() and file_path.is_file():
+                break
+            else:
+                # 尝试原始路径（未解码）
+                file_path = static_dir / path
+                if file_path.exists() and file_path.is_file():
+                    break
+                file_path = None
+        except:
+            continue
+    
+    if file_path and file_path.exists() and file_path.is_file():
+        return send_file(file_path)
+    else:
+        # 如果所有路径都失败，返回404
         abort(404)
-    
-    # 检查文件是否存在
-    if not file_path.exists() or not file_path.is_file():
-        # 尝试原始路径
-        file_path = static_dir / path
-        if not file_path.exists() or not file_path.is_file():
-            abort(404)
-    
-    # 返回文件
-    return send_file(file_path)
 
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5000))
