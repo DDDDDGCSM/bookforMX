@@ -46,7 +46,7 @@ SAMPLE_BOOKS = [
             'name': 'Carlos Ramírez',
             'avatar': 'https://i.pravatar.cc/150?img=12',
             'trust_level': 'bibliofilo',
-            'trust_badge': '📖 Bibliófilo Truequero'
+            'trust_badge': '📖 Bibliófilo Experto'
         },
         'has_story': True,
         'verified': True
