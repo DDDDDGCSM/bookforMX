@@ -187,17 +187,39 @@ def get_analytics_storage():
     return _analytics_storage
 
 def _get_db_connection():
-    """获取数据库连接"""
+    """获取数据库连接（处理 Neon 自动休眠）"""
     global _db_conn
-    if _use_database and _db_conn:
-        try:
-            # 检查连接是否有效
-            _db_conn.cursor().execute('SELECT 1')
-            return _db_conn
-        except:
-            # 连接失效，重新初始化
-            _init_database_if_available()
-            return _db_conn if _use_database else None
+    if _use_database:
+        if _db_conn:
+            try:
+                # 检查连接是否有效
+                _db_conn.cursor().execute('SELECT 1')
+                return _db_conn
+            except Exception as e:
+                # 连接失效（可能是 Neon 休眠），关闭旧连接
+                try:
+                    _db_conn.close()
+                except:
+                    pass
+                _db_conn = None
+        
+        # 重新连接（Neon 会自动唤醒）
+        if not _db_conn:
+            try:
+                database_url = (os.environ.get('DATABASE_URL') or 
+                               os.environ.get('POSTGRES_URL') or 
+                               os.environ.get('NEON_DATABASE_URL') or
+                               os.environ.get('SUPABASE_DATABASE_URL'))
+                if database_url:
+                    import psycopg2
+                    if database_url.startswith('postgres://'):
+                        database_url = database_url.replace('postgres://', 'postgresql://', 1)
+                    _db_conn = psycopg2.connect(database_url)
+                    return _db_conn
+            except Exception as e:
+                print(f'⚠️ 数据库重连失败: {e}')
+                return None
+    
     return None
 
 def add_event(event_type: str, book_id: Optional[int] = None, 
