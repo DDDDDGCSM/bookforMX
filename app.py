@@ -425,7 +425,8 @@ def admin_stats():
     finally:
         conn.close()
 
-    return render_template('admin_stats.html', stats=stats, daily=daily)
+    # 传递 token 到模板，用于生成带 token 的链接
+    return render_template('admin_stats.html', stats=stats, daily=daily, token=req_token)
 
 @app.route('/static/<path:path>')
 def send_static(path):
