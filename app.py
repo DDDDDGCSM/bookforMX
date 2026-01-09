@@ -10,8 +10,9 @@ import os
 import json
 from datetime import datetime
 from pathlib import Path
-import sqlite3
 from typing import Optional, Dict, Any
+from collections import defaultdict
+from threading import Lock
 
 app = Flask(__name__, static_folder='static', static_url_path='/static')
 CORS(app)
@@ -110,41 +111,98 @@ SAMPLE_EXCHANGES = [
 ]
 
 # =========================
-# 简单埋点 & 统计存储（SQLite）
+# 简单埋点 & 统计存储（使用内存 + JSON，适配 Vercel）
 # =========================
 
-BASE_DIR = Path(__file__).resolve().parent
-ANALYTICS_DB_PATH = BASE_DIR / "analytics.db"
+import json
+from collections import defaultdict
+from threading import Lock
 
+# 内存存储（Vercel 无服务器环境下 SQLite 无法持久化）
+# 注意：这是临时方案，数据在重启后会丢失
+# 生产环境建议使用 Vercel KV、Postgres 或外部数据库
+_analytics_storage = {
+    'events': [],  # 存储所有事件
+    'lock': Lock()  # 线程锁
+}
 
-def get_db_connection() -> sqlite3.Connection:
-    """获取 SQLite 连接（如果不存在则创建）"""
-    conn = sqlite3.connect(ANALYTICS_DB_PATH)
-    conn.row_factory = sqlite3.Row
-    return conn
+def get_analytics_storage():
+    """获取分析存储（内存）"""
+    return _analytics_storage
 
+def add_event(event_type: str, book_id: Optional[int] = None, 
+              anon_id: Optional[str] = None, extra: Dict = None,
+              ip: str = '', user_agent: str = ''):
+    """添加事件到内存存储"""
+    storage = get_analytics_storage()
+    with storage['lock']:
+        event = {
+            'id': len(storage['events']) + 1,
+            'event_type': event_type,
+            'book_id': book_id,
+            'anon_id': anon_id,
+            'extra': extra or {},
+            'ip': ip,
+            'user_agent': user_agent,
+            'created_at': datetime.utcnow().isoformat()
+        }
+        storage['events'].append(event)
+        # 限制内存使用：只保留最近 10000 条记录
+        if len(storage['events']) > 10000:
+            storage['events'] = storage['events'][-10000:]
+
+def get_events(event_type: Optional[str] = None, limit: int = None):
+    """获取事件列表"""
+    storage = get_analytics_storage()
+    with storage['lock']:
+        events = storage['events']
+        if event_type:
+            events = [e for e in events if e['event_type'] == event_type]
+        if limit:
+            events = events[-limit:]
+        return events
+
+def count_events(event_type: str) -> int:
+    """统计特定类型事件的数量"""
+    storage = get_analytics_storage()
+    with storage['lock']:
+        return sum(1 for e in storage['events'] if e['event_type'] == event_type)
+
+def get_distinct_anon_ids(event_type: str) -> set:
+    """获取独立访客 ID 集合"""
+    storage = get_analytics_storage()
+    with storage['lock']:
+        anon_ids = set()
+        for e in storage['events']:
+            if e['event_type'] == event_type and e.get('anon_id'):
+                anon_ids.add(e['anon_id'])
+        return anon_ids
+
+def get_daily_stats(days: int = 30):
+    """获取按天统计的 PV/UV"""
+    storage = get_analytics_storage()
+    with storage['lock']:
+        daily = defaultdict(lambda: {'pv': 0, 'uv': set()})
+        for e in storage['events']:
+            if e['event_type'] == 'page_view':
+                day = e['created_at'][:10]  # YYYY-MM-DD
+                daily[day]['pv'] += 1
+                if e.get('anon_id'):
+                    daily[day]['uv'].add(e['anon_id'])
+        
+        # 转换为列表格式
+        result = []
+        for day in sorted(daily.keys(), reverse=True)[:days]:
+            result.append({
+                'day': day,
+                'pv': daily[day]['pv'],
+                'uv': len(daily[day]['uv'])
+            })
+        return result
 
 def init_analytics_db() -> None:
-    """初始化埋点数据表"""
-    conn = get_db_connection()
-    try:
-        conn.execute(
-            """
-            CREATE TABLE IF NOT EXISTS events (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                event_type TEXT NOT NULL,
-                book_id INTEGER,
-                anon_id TEXT,
-                extra TEXT,
-                ip TEXT,
-                user_agent TEXT,
-                created_at TEXT NOT NULL
-            )
-            """
-        )
-        conn.commit()
-    finally:
-        conn.close()
+    """初始化分析存储（内存版本，无需初始化）"""
+    pass
 
 
 # 应用启动时初始化统计库（兼容新旧 Flask 版本）
@@ -271,20 +329,16 @@ def api_track_event():
 
     ip = request.headers.get('X-Forwarded-For', request.remote_addr or '')
     user_agent = request.headers.get('User-Agent', '')
-    created_at = datetime.utcnow().isoformat()
 
-    conn = get_db_connection()
-    try:
-        conn.execute(
-            """
-            INSERT INTO events (event_type, book_id, anon_id, extra, ip, user_agent, created_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?)
-            """,
-            (event_type, book_id, anon_id, extra_str, ip, user_agent, created_at),
-        )
-        conn.commit()
-    finally:
-        conn.close()
+    # 使用内存存储替代 SQLite
+    add_event(
+        event_type=event_type,
+        book_id=book_id,
+        anon_id=anon_id,
+        extra=extra,
+        ip=ip,
+        user_agent=user_agent
+    )
 
     return jsonify({'success': True})
 
@@ -378,52 +432,20 @@ def admin_stats():
         </html>
         """, 403
 
-    conn = get_db_connection()
-    try:
-        cur = conn.cursor()
-        # PV: 所有 page_view 事件
-        cur.execute("SELECT COUNT(*) FROM events WHERE event_type = 'page_view'")
-        total_pv = cur.fetchone()[0]
-
-        # UV: 不同 anon_id 数
-        cur.execute(
-            "SELECT COUNT(DISTINCT anon_id) FROM events WHERE event_type = 'page_view' AND anon_id IS NOT NULL"
-        )
-        total_uv = cur.fetchone()[0]
-
-        # 上传、分享、点击等
-        def count_event(t: str) -> int:
-            cur.execute("SELECT COUNT(*) FROM events WHERE event_type = ?", (t,))
-            return cur.fetchone()[0]
-
-        stats = {
-            'total_pv': total_pv,
-            'total_uv': total_uv,
-            'share_count': count_event('share'),
-            'exchange_request_count': count_event('exchange_request'),
-            'whatsapp_click_count': count_event('whatsapp_click'),
-        }
-
-        # 按天聚合 PV/UV（最近30天）
-        cur.execute(
-            """
-            SELECT substr(created_at, 1, 10) AS day,
-                   COUNT(*) AS pv,
-                   COUNT(DISTINCT anon_id) AS uv
-            FROM events
-            WHERE event_type = 'page_view'
-            GROUP BY day
-            ORDER BY day DESC
-            LIMIT 30
-            """
-        )
-        daily_rows = cur.fetchall()
-        daily = [
-            {'day': row['day'], 'pv': row['pv'], 'uv': row['uv']} for row in daily_rows
-        ]
-
-    finally:
-        conn.close()
+    # 使用内存存储获取统计数据
+    total_pv = count_events('page_view')
+    total_uv = len(get_distinct_anon_ids('page_view'))
+    
+    stats = {
+        'total_pv': total_pv,
+        'total_uv': total_uv,
+        'share_count': count_events('share'),
+        'exchange_request_count': count_events('exchange_request'),
+        'whatsapp_click_count': count_events('whatsapp_click'),
+    }
+    
+    # 按天聚合 PV/UV（最近30天）
+    daily = get_daily_stats(30)
 
     # 传递 token 到模板，用于生成带 token 的链接
     return render_template('admin_stats.html', stats=stats, daily=daily, token=req_token)
