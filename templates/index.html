@@ -1103,23 +1103,30 @@
             }
         }
 
-        // 更新导航按钮
+        // 更新导航按钮（循环模式下按钮始终可用）
         function updateNavButtons() {
-            document.getElementById('prevBtn').disabled = currentBookIndex === 0;
-            document.getElementById('nextBtn').disabled = currentBookIndex === books.length - 1;
+            // 循环模式下，按钮始终可用，不需要禁用
+            document.getElementById('prevBtn').disabled = false;
+            document.getElementById('nextBtn').disabled = false;
         }
 
-        // 上一本
+        // 上一本（支持循环：第一本时跳到最后一本）
         function prevBook() {
             if (currentBookIndex > 0) {
                 displayBook(currentBookIndex - 1);
+            } else {
+                // 如果是第一本，循环到最后一本
+                displayBook(books.length - 1);
             }
         }
 
-        // 下一本
+        // 下一本（支持循环：最后一本时跳到第一本）
         function nextBook() {
             if (currentBookIndex < books.length - 1) {
                 displayBook(currentBookIndex + 1);
+            } else {
+                // 如果是最后一本，循环到第一本
+                displayBook(0);
             }
         }
 
