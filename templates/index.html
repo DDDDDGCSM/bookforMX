@@ -1181,7 +1181,7 @@
         // 分享功能
         function shareBook() {
             const book = books[currentBookIndex];
-            const shareText = `📚 ${book.title} - ${book.author}\n\n"${book.why_release.substring(0, 100)}..."\n\n💬 ¿Te llama este libro? No solo intercambias libros, intercambias historias en Trueque Digital\n\n${window.location.href}`;
+            const shareText = `📚 ${book.title} – ${book.author}\n\n"${book.why_release.substring(0, 110)}..."\n\n🔥 ¿Tienes libros que ya leíste? En Trueque Digital los cambias por nuevas historias con lectores de CDMX y de todo México. Entra al muro de intercambio y elige tu próximo libro:\n\n${window.location.href}`;
             
             if (navigator.share) {
                 navigator.share({
