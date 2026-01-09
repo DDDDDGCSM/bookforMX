@@ -907,7 +907,7 @@
             bookDisplay.innerHTML = `
                 <div class="book-card">
                     <div class="book-header">
-                        <img src="${book.cover}" alt="${book.title}" class="book-cover" onerror="this.src='https://via.placeholder.com/100x150/F5E6D3/3E2723?text=${encodeURIComponent(book.title.substring(0, 10))}'">
+                        <img src="${encodeURI(book.cover)}" alt="${book.title}" class="book-cover" onerror="this.src='https://via.placeholder.com/100x150/F5E6D3/3E2723?text=${encodeURIComponent(book.title.substring(0, 10))}'">
                         <div class="book-info">
                             <div class="book-title">${book.title}</div>
                             <div class="book-author">por ${book.author}</div>
@@ -976,13 +976,13 @@
                 <div style="min-width: 280px; flex-shrink: 0; scroll-snap-align: start;">
                     <div class="exchange-item">
                         <div class="exchange-book">
-                            <img src="${exchange.book1.cover}" alt="${exchange.book1.title}" onerror="this.src='https://via.placeholder.com/60x90/F5E6D3/3E2723?text=Libro'">
+                            <img src="${encodeURI(exchange.book1.cover)}" alt="${exchange.book1.title}" onerror="this.src='https://via.placeholder.com/60x90/F5E6D3/3E2723?text=Libro'">
                             <p>${exchange.book1.title}</p>
                             <p style="font-size: 10px; color: #6D4C41;">${exchange.book1.user}</p>
                         </div>
                         <div class="exchange-icon">🤝</div>
                         <div class="exchange-book">
-                            <img src="${exchange.book2.cover}" alt="${exchange.book2.title}" onerror="this.src='https://via.placeholder.com/60x90/F5E6D3/3E2723?text=Libro'">
+                            <img src="${encodeURI(exchange.book2.cover)}" alt="${exchange.book2.title}" onerror="this.src='https://via.placeholder.com/60x90/F5E6D3/3E2723?text=Libro'">
                             <p>${exchange.book2.title}</p>
                             <p style="font-size: 10px; color: #6D4C41;">${exchange.book2.user}</p>
                         </div>
