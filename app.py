@@ -189,10 +189,10 @@ def api_exchange_request():
 def send_static(path):
     """提供静态文件"""
     import urllib.parse
-    from flask import abort
+    from flask import abort, Response
     import os
     
-    # 处理URL编码的中文路径
+    # 处理URL编码的路径
     decoded_path = urllib.parse.unquote(path)
     
     # 在Vercel环境下，静态文件可能在多个位置
@@ -211,28 +211,37 @@ def send_static(path):
             continue
             
         try:
+            # 尝试解码后的路径
             file_path = static_dir / decoded_path
-            file_path = file_path.resolve()
-            static_dir_resolved = static_dir.resolve()
-            
-            # 安全检查：确保文件在static目录内
-            if not str(file_path).startswith(str(static_dir_resolved)):
-                continue
-                
-            # 检查文件是否存在
             if file_path.exists() and file_path.is_file():
-                break
-            else:
-                # 尝试原始路径（未解码）
-                file_path = static_dir / path
-                if file_path.exists() and file_path.is_file():
+                file_path = file_path.resolve()
+                static_dir_resolved = static_dir.resolve()
+                # 安全检查
+                if str(file_path).startswith(str(static_dir_resolved)):
                     break
-                file_path = None
-        except:
+            
+            # 尝试原始路径（未解码）
+            file_path = static_dir / path
+            if file_path.exists() and file_path.is_file():
+                file_path = file_path.resolve()
+                static_dir_resolved = static_dir.resolve()
+                # 安全检查
+                if str(file_path).startswith(str(static_dir_resolved)):
+                    break
+            
+            file_path = None
+        except Exception as e:
             continue
     
     if file_path and file_path.exists() and file_path.is_file():
-        return send_file(file_path)
+        # 设置正确的Content-Type
+        mimetype = None
+        if file_path.suffix.lower() in ['.jpg', '.jpeg']:
+            mimetype = 'image/jpeg'
+        elif file_path.suffix.lower() == '.png':
+            mimetype = 'image/png'
+        
+        return send_file(file_path, mimetype=mimetype)
     else:
         # 如果所有路径都失败，返回404
         abort(404)
