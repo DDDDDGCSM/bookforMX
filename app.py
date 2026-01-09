@@ -111,16 +111,72 @@ SAMPLE_EXCHANGES = [
 ]
 
 # =========================
-# 简单埋点 & 统计存储（使用内存 + JSON，适配 Vercel）
+# 简单埋点 & 统计存储（支持数据库持久化 + 内存回退）
 # =========================
 
 import json
 from collections import defaultdict
 from threading import Lock
 
-# 内存存储（Vercel 无服务器环境下 SQLite 无法持久化）
-# 注意：这是临时方案，数据在重启后会丢失
-# 生产环境建议使用 Vercel KV、Postgres 或外部数据库
+# 检测是否配置了数据库
+_use_database = False
+_db_conn = None
+
+def _init_database_if_available():
+    """尝试初始化数据库连接（如果配置了环境变量）"""
+    global _use_database, _db_conn
+    try:
+        database_url = (os.environ.get('DATABASE_URL') or 
+                       os.environ.get('POSTGRES_URL') or 
+                       os.environ.get('NEON_DATABASE_URL') or
+                       os.environ.get('SUPABASE_DATABASE_URL'))
+        
+        if database_url:
+            import psycopg2
+            # Vercel/Neon 提供的 URL 格式转换
+            if database_url.startswith('postgres://'):
+                database_url = database_url.replace('postgres://', 'postgresql://', 1)
+            
+            conn = psycopg2.connect(database_url)
+            cursor = conn.cursor()
+            
+            # 创建表（如果不存在）
+            cursor.execute('''
+                CREATE TABLE IF NOT EXISTS book_exchange_events (
+                    id SERIAL PRIMARY KEY,
+                    event_type VARCHAR(50) NOT NULL,
+                    book_id INTEGER,
+                    anon_id TEXT,
+                    extra JSONB,
+                    ip VARCHAR(45),
+                    user_agent TEXT,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                )
+            ''')
+            
+            # 创建索引
+            cursor.execute('CREATE INDEX IF NOT EXISTS idx_event_type ON book_exchange_events(event_type)')
+            cursor.execute('CREATE INDEX IF NOT EXISTS idx_created_at ON book_exchange_events(created_at)')
+            cursor.execute('CREATE INDEX IF NOT EXISTS idx_book_id ON book_exchange_events(book_id)')
+            
+            conn.commit()
+            cursor.close()
+            _db_conn = conn
+            _use_database = True
+            print('✅ 数据库连接成功，使用持久化存储')
+            return True
+    except ImportError:
+        print('⚠️ psycopg2 未安装，使用内存存储')
+    except Exception as e:
+        print(f'⚠️ 数据库连接失败，使用内存存储: {e}')
+    
+    _use_database = False
+    return False
+
+# 尝试初始化数据库
+_init_database_if_available()
+
+# 内存存储（作为回退方案）
 _analytics_storage = {
     'events': [],  # 存储所有事件
     'lock': Lock()  # 线程锁
@@ -130,10 +186,42 @@ def get_analytics_storage():
     """获取分析存储（内存）"""
     return _analytics_storage
 
+def _get_db_connection():
+    """获取数据库连接"""
+    global _db_conn
+    if _use_database and _db_conn:
+        try:
+            # 检查连接是否有效
+            _db_conn.cursor().execute('SELECT 1')
+            return _db_conn
+        except:
+            # 连接失效，重新初始化
+            _init_database_if_available()
+            return _db_conn if _use_database else None
+    return None
+
 def add_event(event_type: str, book_id: Optional[int] = None, 
               anon_id: Optional[str] = None, extra: Dict = None,
               ip: str = '', user_agent: str = ''):
-    """添加事件到内存存储"""
+    """添加事件（优先使用数据库，否则使用内存存储）"""
+    # 优先使用数据库
+    db_conn = _get_db_connection()
+    if db_conn:
+        try:
+            cursor = db_conn.cursor()
+            extra_json = json.dumps(extra or {}, ensure_ascii=False)
+            cursor.execute('''
+                INSERT INTO book_exchange_events 
+                (event_type, book_id, anon_id, extra, ip, user_agent)
+                VALUES (%s, %s, %s, %s, %s, %s)
+            ''', (event_type, book_id, anon_id, extra_json, ip, user_agent))
+            db_conn.commit()
+            cursor.close()
+            return
+        except Exception as e:
+            print(f'⚠️ 数据库写入失败，回退到内存存储: {e}')
+    
+    # 回退到内存存储
     storage = get_analytics_storage()
     with storage['lock']:
         event = {
@@ -152,7 +240,46 @@ def add_event(event_type: str, book_id: Optional[int] = None,
             storage['events'] = storage['events'][-10000:]
 
 def get_events(event_type: Optional[str] = None, limit: int = None):
-    """获取事件列表"""
+    """获取事件列表（优先从数据库，否则从内存）"""
+    # 优先使用数据库
+    db_conn = _get_db_connection()
+    if db_conn:
+        try:
+            cursor = db_conn.cursor()
+            query = 'SELECT id, event_type, book_id, anon_id, extra, ip, user_agent, created_at FROM book_exchange_events'
+            params = []
+            if event_type:
+                query += ' WHERE event_type = %s'
+                params.append(event_type)
+            query += ' ORDER BY created_at DESC'
+            if limit:
+                query += ' LIMIT %s'
+                params.append(limit)
+            
+            cursor.execute(query, params)
+            rows = cursor.fetchall()
+            events = []
+            for row in rows:
+                try:
+                    extra = json.loads(row[4]) if row[4] else {}
+                except:
+                    extra = {}
+                events.append({
+                    'id': row[0],
+                    'event_type': row[1],
+                    'book_id': row[2],
+                    'anon_id': row[3],
+                    'extra': extra,
+                    'ip': row[5] or '',
+                    'user_agent': row[6] or '',
+                    'created_at': row[7].isoformat() if hasattr(row[7], 'isoformat') else str(row[7])
+                })
+            cursor.close()
+            return events
+        except Exception as e:
+            print(f'⚠️ 数据库读取失败，回退到内存存储: {e}')
+    
+    # 回退到内存存储
     storage = get_analytics_storage()
     with storage['lock']:
         events = storage['events']
@@ -163,7 +290,20 @@ def get_events(event_type: Optional[str] = None, limit: int = None):
         return events
 
 def count_events(event_type: str) -> int:
-    """统计特定类型事件的数量"""
+    """统计特定类型事件的数量（优先从数据库，否则从内存）"""
+    # 优先使用数据库
+    db_conn = _get_db_connection()
+    if db_conn:
+        try:
+            cursor = db_conn.cursor()
+            cursor.execute('SELECT COUNT(*) FROM book_exchange_events WHERE event_type = %s', (event_type,))
+            count = cursor.fetchone()[0]
+            cursor.close()
+            return count
+        except Exception as e:
+            print(f'⚠️ 数据库统计失败，回退到内存存储: {e}')
+    
+    # 回退到内存存储
     storage = get_analytics_storage()
     with storage['lock']:
         return sum(1 for e in storage['events'] if e['event_type'] == event_type)
@@ -180,7 +320,20 @@ def get_distinct_anon_ids(event_type: str) -> set:
 
 
 def get_distinct_ips(event_type: str) -> set:
-    """获取独立访客 IP 集合（用于 UV 统计）"""
+    """获取独立访客 IP 集合（用于 UV 统计，优先从数据库，否则从内存）"""
+    # 优先使用数据库
+    db_conn = _get_db_connection()
+    if db_conn:
+        try:
+            cursor = db_conn.cursor()
+            cursor.execute('SELECT DISTINCT ip FROM book_exchange_events WHERE event_type = %s AND ip IS NOT NULL AND ip != %s', (event_type, ''))
+            ips = {row[0] for row in cursor.fetchall()}
+            cursor.close()
+            return ips
+        except Exception as e:
+            print(f'⚠️ 数据库查询失败，回退到内存存储: {e}')
+    
+    # 回退到内存存储
     storage = get_analytics_storage()
     with storage['lock']:
         ips = set()
@@ -190,7 +343,31 @@ def get_distinct_ips(event_type: str) -> set:
         return ips
 
 def get_daily_stats(days: int = 30):
-    """获取按天统计的 PV/UV"""
+    """获取按天统计的 PV/UV（优先从数据库，否则从内存）"""
+    # 优先使用数据库
+    db_conn = _get_db_connection()
+    if db_conn:
+        try:
+            cursor = db_conn.cursor()
+            cursor.execute('''
+                SELECT DATE(created_at) as day,
+                       COUNT(*) as pv,
+                       COUNT(DISTINCT ip) as uv
+                FROM book_exchange_events
+                WHERE event_type = 'page_view'
+                  AND created_at >= CURRENT_DATE - INTERVAL '%s days'
+                GROUP BY day
+                ORDER BY day DESC
+                LIMIT %s
+            ''', (days, days))
+            rows = cursor.fetchall()
+            result = [{'day': str(row[0]), 'pv': row[1], 'uv': row[2]} for row in rows]
+            cursor.close()
+            return result
+        except Exception as e:
+            print(f'⚠️ 数据库查询失败，回退到内存存储: {e}')
+    
+    # 回退到内存存储
     storage = get_analytics_storage()
     with storage['lock']:
         daily = defaultdict(lambda: {'pv': 0, 'uv': set()})
@@ -317,13 +494,13 @@ def api_track_event():
     anon_id = (data.get('anon_id') or '').strip() or None
     extra = data.get('extra') or {}
 
-    # 安全地序列化 extra
-    try:
-        extra_str = json.dumps(extra, ensure_ascii=False)
-    except Exception:
-        extra_str = '{}'
-
-    ip = request.headers.get('X-Forwarded-For', request.remote_addr or '')
+    # 获取真实 IP（处理代理情况）
+    ip = request.headers.get('X-Forwarded-For', '')
+    if ip:
+        # X-Forwarded-For 可能包含多个 IP，取第一个
+        ip = ip.split(',')[0].strip()
+    if not ip:
+        ip = request.remote_addr or ''
     user_agent = request.headers.get('User-Agent', '')
 
     # 使用内存存储替代 SQLite

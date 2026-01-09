@@ -931,6 +931,8 @@
         let selectedBookId = null;
         let uploadedImage = null;
         let hasSubmittedExchange = false; // 跟踪是否已提交交换
+        // 书籍浏览去重：使用 Set 记录本次会话已浏览的书（避免重复记录）
+        let viewedBooksInSession = new Set();
 
         // 生成fallback头像（基于用户名首字母）
         function generateFallbackAvatar(name, size = 32) {
@@ -997,7 +999,7 @@
             }
         }
 
-        // 通用埋点函数
+        // 通用埋点函数（改进版：使用 sendBeacon 确保可靠发送）
         function trackEvent(eventType, payload = {}) {
             try {
                 const body = {
@@ -1007,17 +1009,28 @@
                     extra: payload.extra || {}
                 };
 
-                fetch('/api/track', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify(body)
-                }).catch(() => {
-                    // 忽略埋点错误，避免影响用户体验
-                });
+                const data = JSON.stringify(body);
+                
+                // 优先使用 sendBeacon（更可靠，即使页面关闭也能发送）
+                if (navigator.sendBeacon) {
+                    const blob = new Blob([data], { type: 'application/json' });
+                    navigator.sendBeacon('/api/track', blob);
+                } else {
+                    // 降级方案：使用 fetch
+                    fetch('/api/track', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: data,
+                        keepalive: true  // 确保请求在页面关闭前完成
+                    }).catch(() => {
+                        // 忽略埋点错误，避免影响用户体验
+                    });
+                }
             } catch (e) {
                 // 静默失败
+                console.warn('埋点发送失败:', e);
             }
         }
 
@@ -1030,8 +1043,6 @@
             trackEvent('page_view', {});
         }
 
-        let lastTrackedBookId = null;
-
         // 显示当前图书
         function displayBook(index) {
             if (index < 0 || index >= books.length) return;
@@ -1040,10 +1051,11 @@
             const book = books[index];
             const bookDisplay = document.getElementById('bookDisplay');
             
-            // 记录书籍浏览（去重，避免重复刷同一本）
-            if (book && book.id !== lastTrackedBookId) {
+            // 记录书籍浏览（每次切换都记录，确保精准统计）
+            // 使用会话级去重，避免同一会话内重复记录同一本书
+            if (book && book.id && !viewedBooksInSession.has(book.id)) {
                 trackEvent('book_view', { bookId: book.id, extra: {} });
-                lastTrackedBookId = book.id;
+                viewedBooksInSession.add(book.id);
             }
 
             // WhatsApp 图标始终显示
@@ -1237,12 +1249,14 @@
 
         // 打开WhatsApp
         function openWhatsApp(bookId) {
-            const message = encodeURIComponent(`Hola, me interesa intercambiar el libro "${books[currentBookIndex].title}"`);
-            window.open(`https://wa.me/971509216685?text=${message}`, '_blank');
-            // 记录WhatsApp点击
+            // 先记录埋点（在 window.open 之前，确保可靠发送）
             trackEvent('whatsapp_click', {
                 bookId: books[currentBookIndex].id
             });
+            
+            // 然后打开 WhatsApp
+            const message = encodeURIComponent(`Hola, me interesa intercambiar el libro "${books[currentBookIndex].title}"`);
+            window.open(`https://wa.me/971509216685?text=${message}`, '_blank');
         }
 
         // 分享功能
