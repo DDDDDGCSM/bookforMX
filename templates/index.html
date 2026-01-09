@@ -971,8 +971,18 @@
 
         // 更新计数器
         function updateCounter() {
-            document.getElementById('currentIndex').textContent = currentBookIndex + 1;
-            document.getElementById('totalBooks').textContent = books.length;
+            const currentIndexEl = document.getElementById('currentIndex');
+            const totalBooksEl = document.getElementById('totalBooks');
+            if (currentIndexEl && totalBooksEl) {
+                currentIndexEl.textContent = currentBookIndex + 1;
+                totalBooksEl.textContent = books.length;
+            } else {
+                // 如果元素不存在，直接更新整个计数器
+                const counterEl = document.querySelector('.book-counter');
+                if (counterEl) {
+                    counterEl.textContent = `${currentBookIndex + 1} / ${books.length}`;
+                }
+            }
         }
 
         // 更新导航按钮
