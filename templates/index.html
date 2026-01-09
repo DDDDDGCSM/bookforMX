@@ -853,9 +853,10 @@
             const today = new Date();
             const monthNames = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
             
-            for (let i = 0; i < 3; i++) {
+            // 生成10个日期
+            for (let i = 0; i < 10; i++) {
                 const date = new Date(today);
-                date.setDate(date.getDate() - (i * 8 + Math.floor(Math.random() * 5)));
+                date.setDate(date.getDate() - (i * 3 + Math.floor(Math.random() * 2)));
                 const day = date.getDate();
                 const month = monthNames[date.getMonth()];
                 dates.push(`${day} ${month}`);
