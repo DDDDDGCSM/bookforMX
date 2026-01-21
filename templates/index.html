@@ -17,7 +17,7 @@
             background: #F5E6D3;
             color: #3E2723;
             line-height: 1.6;
-            padding-bottom: 80px; /* 为底部按钮留空间 */
+            padding-bottom: 20px; /* 已移除底部悬浮按钮，仅保留少量底部留白 */
         }
 
         .container {
@@ -224,22 +224,10 @@
             display: inline-block;
         }
 
-        /* 底部固定按钮 */
-        .fixed-bottom-btn {
-            position: fixed;
-            bottom: 0;
-            left: 0;
-            right: 0;
-            background: white;
-            padding: 15px;
-            box-shadow: 0 -2px 10px rgba(0,0,0,0.1);
-            z-index: 1000;
-        }
-
         .request-btn {
             width: 100%;
-            max-width: 1200px;
-            margin: 0 auto;
+            max-width: 500px;
+            margin: 20px auto 0;
             padding: 15px;
             background: #2C5F2D;
             color: white;
@@ -256,6 +244,12 @@
             background: #4A7C59;
             transform: translateY(-2px);
             box-shadow: 0 4px 12px rgba(44, 95, 45, 0.3);
+        }
+
+        /* 每本书下方的交换按钮 */
+        .book-exchange-btn {
+            display: block;
+            font-size: 15px;
         }
 
         /* 模态框 */
@@ -628,16 +622,16 @@
             <p>No solo intercambias libros, intercambias historias.</p>
         </div>
 
-        <!-- 导航控制 -->
+        <!-- 导航控制（上下切换图书） -->
         <div class="nav-controls">
-            <button class="nav-arrow" onclick="prevBook()" id="prevBtn">‹</button>
+            <button class="nav-arrow" onclick="prevBook()" id="prevBtn">▲</button>
             <div class="book-counter">
                 <span id="currentIndex">1</span> / <span id="totalBooks">17</span>
             </div>
-            <button class="nav-arrow" onclick="nextBook()" id="nextBtn">›</button>
+            <button class="nav-arrow" onclick="nextBook()" id="nextBtn">▼</button>
         </div>
 
-        <!-- 图书展示 -->
+        <!-- 图书展示（支持上下滑动切换） -->
         <div style="position: relative;">
             <div id="bookDisplay">
                 <!-- 图书卡片将在这里动态加载 -->
@@ -648,20 +642,13 @@
             </button>
         </div>
 
-        <!-- 历史交换区 -->
+        <!-- 历史交换区（保持原样，左右滑动） -->
         <div class="history-section">
             <h2>🤝 Intercambios Realizados</h2>
             <div class="exchange-list" id="exchangeList">
                 <!-- 交换记录将在这里动态加载 -->
             </div>
         </div>
-    </div>
-
-    <!-- 底部固定按钮 -->
-    <div class="fixed-bottom-btn">
-        <button class="request-btn" onclick="openModal()">
-            📖 Solicitar Intercambio
-        </button>
     </div>
 
     <!-- 申请交换模态框 -->
@@ -688,7 +675,7 @@
             <div class="whatsapp-display" id="whatsappDisplay">
                 <p style="color: #2C5F2D; font-weight: 600; margin-bottom: 10px;">¡Listo, compa! Tu solicitud ya está enviada 🎉</p>
                 <p style="color: #6D4C41; font-size: 14px;">Ahora contacta al dueño del libro por WhatsApp:</p>
-                <a href="https://wa.me/15172976578" target="_blank" class="whatsapp-link" id="whatsappLink" onclick="openWhatsApp(books[currentBookIndex].id); return true;">
+                <a href="https://wa.me/15172976578" target="_blank" class="whatsapp-link" id="whatsappLink" onclick="openWhatsApp(selectedBookId || (books[currentBookIndex] && books[currentBookIndex].id)); return true;">
                     <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
                         <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413Z"/>
                     </svg>
@@ -1041,6 +1028,39 @@
             updateCounter();
             // 记录页面浏览
             trackEvent('page_view', {});
+
+            // 为图书区域增加上下滑动手势切换
+            const bookDisplay = document.getElementById('bookDisplay');
+            if (bookDisplay) {
+                let touchStartY = null;
+                let touchEndY = null;
+
+                bookDisplay.addEventListener('touchstart', function (e) {
+                    if (e.touches && e.touches.length > 0) {
+                        touchStartY = e.touches[0].clientY;
+                    }
+                }, { passive: true });
+
+                bookDisplay.addEventListener('touchend', function (e) {
+                    if (touchStartY === null) return;
+                    if (e.changedTouches && e.changedTouches.length > 0) {
+                        touchEndY = e.changedTouches[0].clientY;
+                        const deltaY = touchEndY - touchStartY;
+                        const threshold = 40; // 最小滑动距离
+                        if (Math.abs(deltaY) > threshold) {
+                            if (deltaY < 0) {
+                                // 向上滑 -> 下一本
+                                nextBook();
+                            } else {
+                                // 向下滑 -> 上一本
+                                prevBook();
+                            }
+                        }
+                    }
+                    touchStartY = null;
+                    touchEndY = null;
+                }, { passive: true });
+            }
         }
 
         // 显示当前图书
@@ -1080,6 +1100,9 @@
                         <h4>Por qué lo recomiendo</h4>
                         <p>${book.why_release}</p>
                     </div>
+                    <button class="request-btn book-exchange-btn" onclick="openExchangeModal(${book.id})">
+                        🤝 Solicitar Intercambio por este libro
+                    </button>
                 </div>
             `;
 
@@ -1163,7 +1186,7 @@
             `).join('');
         }
 
-        // 打开模态框
+        // 打开模态框（可带上目标图书ID）
         function openModal() {
             const modal = document.getElementById('exchangeModal');
             modal.classList.add('active');
@@ -1183,6 +1206,12 @@
             document.getElementById('whatsappDisplay').classList.remove('active');
             document.getElementById('submitBtn').style.display = 'block';
             document.getElementById('bookImageInput').value = '';
+        }
+
+        // 从某本书的按钮打开交换弹窗，记录目标图书
+        function openExchangeModal(bookId) {
+            selectedBookId = bookId;
+            openModal();
         }
 
         // 关闭模态框
@@ -1235,9 +1264,12 @@
             // 重新显示当前图书以显示WhatsApp图标
             displayBook(currentBookIndex);
 
+            // 确定目标图书ID（优先使用用户点击的那本）
+            const targetBookId = selectedBookId || (books[currentBookIndex] && books[currentBookIndex].id);
+
             // 这里可以发送到后端（目前仅在控制台打印）
             console.log('Intercambio solicitado:', {
-                bookId: books[currentBookIndex].id,
+                bookId: targetBookId,
                 story: story,
                 image: '[imagen subida]'
             });
@@ -1246,7 +1278,7 @@
             // 确保 has_image 正确记录：检查 uploadedImage 是否有实际内容
             const hasImage = uploadedImage && uploadedImage.length > 0 && uploadedImage.startsWith('data:image');
             trackEvent('exchange_request', {
-                bookId: books[currentBookIndex].id,
+                bookId: targetBookId,
                 extra: {
                     story_snippet: story.substring(0, 120),
                     story_length: story.length,
@@ -1258,9 +1290,10 @@
         // 打开WhatsApp
         function openWhatsApp(bookId) {
             // 先记录埋点（在 window.open 之前，确保可靠发送）
-            const currentBook = books[currentBookIndex];
+            const targetId = bookId || (books[currentBookIndex] && books[currentBookIndex].id);
+            const currentBook = books.find(b => b.id === targetId) || books[currentBookIndex];
             trackEvent('whatsapp_click', {
-                bookId: currentBook ? currentBook.id : bookId
+                bookId: currentBook ? currentBook.id : targetId
             });
             
             // 然后打开 WhatsApp（如果是从链接点击，允许默认行为也执行）
