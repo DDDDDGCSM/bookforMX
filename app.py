@@ -123,7 +123,7 @@ _use_database = False
 _db_conn = None
 
 def _init_database_if_available():
-    """尝试初始化数据库连接（如果配置了环境变量）"""
+    """尝试初始化数据库连接（如果配置了环境变量），并创建所需表结构"""
     global _use_database, _db_conn
     try:
         database_url = (os.environ.get('DATABASE_URL') or 
@@ -140,7 +140,7 @@ def _init_database_if_available():
             conn = psycopg2.connect(database_url)
             cursor = conn.cursor()
             
-            # 创建表（如果不存在）
+            # 埋点事件表（如果不存在）
             cursor.execute('''
                 CREATE TABLE IF NOT EXISTS book_exchange_events (
                     id SERIAL PRIMARY KEY,
@@ -158,6 +158,19 @@ def _init_database_if_available():
             cursor.execute('CREATE INDEX IF NOT EXISTS idx_event_type ON book_exchange_events(event_type)')
             cursor.execute('CREATE INDEX IF NOT EXISTS idx_created_at ON book_exchange_events(created_at)')
             cursor.execute('CREATE INDEX IF NOT EXISTS idx_book_id ON book_exchange_events(book_id)')
+
+            # 线上图书集市（Tianguis）列表
+            cursor.execute('''
+                CREATE TABLE IF NOT EXISTS book_market_items (
+                    id SERIAL PRIMARY KEY,
+                    title TEXT NOT NULL,
+                    description TEXT NOT NULL,
+                    whatsapp TEXT NOT NULL,
+                    city TEXT,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                )
+            ''')
+            cursor.execute('CREATE INDEX IF NOT EXISTS idx_market_created_at ON book_market_items(created_at DESC)')
             
             conn.commit()
             cursor.close()
@@ -182,9 +195,104 @@ _analytics_storage = {
     'lock': Lock()  # 线程锁
 }
 
+# 图书集市内存存储（用于数据库不可用时的回退）
+_market_storage = {
+    'items': [],
+    'lock': Lock()
+}
+
 def get_analytics_storage():
     """获取分析存储（内存）"""
     return _analytics_storage
+
+
+def get_market_storage():
+    """获取图书集市存储（内存回退用）"""
+    return _market_storage
+
+
+def create_market_item(title: str, description: str, whatsapp: str, city: Optional[str] = None) -> Dict[str, Any]:
+    """创建一条图书集市记录（优先写入数据库，失败则写入内存）"""
+    item = {
+        'id': None,
+        'title': title.strip(),
+        'description': description.strip(),
+        'whatsapp': whatsapp.strip(),
+        'city': (city or '').strip(),
+        'created_at': datetime.utcnow().isoformat()
+    }
+
+    # 优先使用数据库
+    db_conn = _get_db_connection()
+    if db_conn:
+        try:
+            cursor = db_conn.cursor()
+            cursor.execute(
+                '''
+                INSERT INTO book_market_items (title, description, whatsapp, city)
+                VALUES (%s, %s, %s, %s)
+                RETURNING id, created_at
+                ''',
+                (item['title'], item['description'], item['whatsapp'], item['city'] or None)
+            )
+            row = cursor.fetchone()
+            if row:
+                item['id'] = row[0]
+                if row[1]:
+                    item['created_at'] = row[1].isoformat() if hasattr(row[1], 'isoformat') else str(row[1])
+            cursor.close()
+            return item
+        except Exception as e:
+            print(f'⚠️ 图书集市写入数据库失败，将写入内存: {e}')
+
+    # 回退到内存
+    storage = get_market_storage()
+    with storage['lock']:
+        item['id'] = len(storage['items']) + 1
+        storage['items'].append(item)
+        # 限制长度，避免内存无限增长
+        if len(storage['items']) > 1000:
+            storage['items'] = storage['items'][-1000:]
+    return item
+
+
+def list_market_items(limit: int = 100) -> list:
+    """获取图书集市最近的条目列表（优先从数据库）"""
+    db_conn = _get_db_connection()
+    if db_conn:
+        try:
+            cursor = db_conn.cursor()
+            cursor.execute(
+                '''
+                SELECT id, title, description, whatsapp, city, created_at
+                FROM book_market_items
+                ORDER BY created_at DESC
+                LIMIT %s
+                ''',
+                (limit,)
+            )
+            rows = cursor.fetchall()
+            cursor.close()
+            items = []
+            for row in rows:
+                items.append({
+                    'id': row[0],
+                    'title': row[1],
+                    'description': row[2],
+                    'whatsapp': row[3],
+                    'city': row[4] or '',
+                    'created_at': row[5].isoformat() if hasattr(row[5], 'isoformat') else str(row[5])
+                })
+            return items
+        except Exception as e:
+            print(f'⚠️ 图书集市读取数据库失败，回退到内存: {e}')
+
+    storage = get_market_storage()
+    with storage['lock']:
+        # 内存中已按插入顺序，取最近的 limit 条，按时间倒序返回
+        items = list(storage['items'])[-limit:]
+        items.reverse()
+        return items
 
 def _get_db_connection():
     """获取数据库连接（处理 Neon 自动休眠）"""
@@ -422,6 +530,13 @@ def index():
     """主页 - 单页面应用"""
     return render_template('index.html')
 
+
+@app.route('/tianguis')
+def book_market():
+    """图书交易集市（Tianguis de Libros）"""
+    # 前端会通过 API 动态加载列表，这里只渲染壳子模板
+    return render_template('market.html')
+
 @app.route('/plaza')
 def plaza():
     """图书广场 - 发现页（保留兼容性）"""
@@ -481,6 +596,51 @@ def api_book_detail(book_id):
     if not book:
         return jsonify({'error': 'Libro no encontrado'}), 404
     return jsonify(book)
+
+
+@app.route('/api/market/upload', methods=['POST'])
+def api_market_upload():
+    """上传一本待交换的书到线上集市"""
+    data = request.get_json(silent=True) or {}
+    title = (data.get('title') or '').strip()
+    description = (data.get('description') or '').strip()
+    whatsapp = (data.get('whatsapp') or '').strip()
+    city = (data.get('city') or '').strip()
+
+    if not title or not description or not whatsapp:
+        return jsonify({'success': False, 'error': 'title, description y whatsapp son obligatorios'}), 400
+
+    # 简单防护：限制长度
+    if len(title) > 200 or len(description) > 2000 or len(whatsapp) > 50 or len(city) > 100:
+        return jsonify({'success': False, 'error': 'Campos demasiado largos'}), 400
+
+    item = create_market_item(title=title, description=description, whatsapp=whatsapp, city=city)
+
+    # 记录埋点：有人在集市发布了一本书
+    try:
+        add_event(
+            event_type='market_submit',
+            book_id=None,
+            anon_id=None,
+            extra={
+                'market_item_id': item.get('id'),
+                'city': item.get('city', '')
+            },
+            ip=request.headers.get('X-Forwarded-For', '').split(',')[0].strip() or (request.remote_addr or ''),
+            user_agent=request.headers.get('User-Agent', '')
+        )
+    except Exception:
+        pass
+
+    return jsonify({'success': True, 'item': item})
+
+
+@app.route('/api/market/list')
+def api_market_list():
+    """获取线上图书集市的列表"""
+    limit = request.args.get('limit', default=100, type=int)
+    items = list_market_items(limit=limit)
+    return jsonify({'success': True, 'items': items})
 
 @app.route('/api/exchange/request', methods=['POST'])
 def api_exchange_request():

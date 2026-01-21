@@ -252,6 +252,36 @@
             font-size: 15px;
         }
 
+        /* 底部固定入口：前往线上图书集市（tianguis） */
+        .fixed-bottom-btn {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background: rgba(245, 230, 211, 0.98);
+            padding: 10px 12px 16px;
+            box-shadow: 0 -2px 10px rgba(0,0,0,0.12);
+            z-index: 1000;
+        }
+
+        .market-btn {
+            width: 100%;
+            max-width: 480px;
+            margin: 0 auto;
+            padding: 11px 16px;
+            border-radius: 999px;
+            border: none;
+            background: #2C5F2D;
+            color: white;
+            font-size: 15px;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+            cursor: pointer;
+        }
+
         /* 模态框 */
         .modal {
             display: none;
@@ -640,6 +670,13 @@
                 <!-- 交换记录将在这里动态加载 -->
             </div>
         </div>
+    </div>
+
+    <!-- 底部固定入口：线上图书集市（Tianguis de Libros） -->
+    <div class="fixed-bottom-btn">
+        <button class="market-btn" onclick="goToMarket()">
+            🏪 Ir al Tianguis de Libros · Mercado de intercambio entre compas
+        </button>
     </div>
 
     <!-- 申请交换模态框 -->
@@ -1096,6 +1133,11 @@
             });
 
             cards.forEach(card => observer.observe(card));
+        }
+
+        // 进入线上图书集市（Tianguis）
+        function goToMarket() {
+            window.location.href = '/tianguis';
         }
 
         // 显示交换记录
