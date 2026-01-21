@@ -622,19 +622,10 @@
             <p>No solo intercambias libros, intercambias historias.</p>
         </div>
 
-        <!-- 导航控制（上下切换图书） -->
-        <div class="nav-controls">
-            <button class="nav-arrow" onclick="prevBook()" id="prevBtn">▲</button>
-            <div class="book-counter">
-                <span id="currentIndex">1</span> / <span id="totalBooks">17</span>
-            </div>
-            <button class="nav-arrow" onclick="nextBook()" id="nextBtn">▼</button>
-        </div>
-
-        <!-- 图书展示（支持上下滑动切换） -->
+        <!-- 图书列表：直接向下滑动浏览所有图书 -->
         <div style="position: relative;">
             <div id="bookDisplay">
-                <!-- 图书卡片将在这里动态加载 -->
+                <!-- 图书卡片列表将在这里动态加载 -->
             </div>
             <!-- 分享按钮 -->
             <button class="share-btn" onclick="shareBook()">
@@ -1023,64 +1014,20 @@
 
         // 初始化
         function init() {
-            displayBook(0);
+            renderBooksList();
             displayExchanges();
-            updateCounter();
             // 记录页面浏览
             trackEvent('page_view', {});
-
-            // 为图书区域增加上下滑动手势切换
-            const bookDisplay = document.getElementById('bookDisplay');
-            if (bookDisplay) {
-                let touchStartY = null;
-                let touchEndY = null;
-
-                bookDisplay.addEventListener('touchstart', function (e) {
-                    if (e.touches && e.touches.length > 0) {
-                        touchStartY = e.touches[0].clientY;
-                    }
-                }, { passive: true });
-
-                bookDisplay.addEventListener('touchend', function (e) {
-                    if (touchStartY === null) return;
-                    if (e.changedTouches && e.changedTouches.length > 0) {
-                        touchEndY = e.changedTouches[0].clientY;
-                        const deltaY = touchEndY - touchStartY;
-                        const threshold = 40; // 最小滑动距离
-                        if (Math.abs(deltaY) > threshold) {
-                            if (deltaY < 0) {
-                                // 向上滑 -> 下一本
-                                nextBook();
-                            } else {
-                                // 向下滑 -> 上一本
-                                prevBook();
-                            }
-                        }
-                    }
-                    touchStartY = null;
-                    touchEndY = null;
-                }, { passive: true });
-            }
+            setupBookViewObserver();
         }
 
-        // 显示当前图书
-        function displayBook(index) {
-            if (index < 0 || index >= books.length) return;
-            currentBookIndex = index;
-            
-            const book = books[index];
+        // 渲染图书列表（一次性展示所有图书，支持向下滚动浏览）
+        function renderBooksList() {
             const bookDisplay = document.getElementById('bookDisplay');
-            
-            // 记录书籍浏览（每次切换都记录，确保精准统计）
-            // 使用会话级去重，避免同一会话内重复记录同一本书
-            if (book && book.id && !viewedBooksInSession.has(book.id)) {
-                trackEvent('book_view', { bookId: book.id, extra: {} });
-                viewedBooksInSession.add(book.id);
-            }
+            if (!bookDisplay) return;
 
-            // WhatsApp 图标始终显示
-            bookDisplay.innerHTML = `
-                <div class="book-card">
+            const cardsHtml = books.map(book => `
+                <div class="book-card" data-book-id="${book.id}">
                     <div class="book-header">
                         <img src="${encodeURI(book.cover)}" alt="${book.title}" class="book-cover" loading="lazy" onerror="this.onerror=null; this.style.display='none';">
                         <div class="book-info">
@@ -1104,53 +1051,51 @@
                         🤝 Solicitar Intercambio por este libro
                     </button>
                 </div>
-            `;
+            `).join('');
 
-            updateCounter();
-            updateNavButtons();
+            bookDisplay.innerHTML = cardsHtml;
         }
 
-        // 更新计数器
-        function updateCounter() {
-            const currentIndexEl = document.getElementById('currentIndex');
-            const totalBooksEl = document.getElementById('totalBooks');
-            if (currentIndexEl && totalBooksEl) {
-                currentIndexEl.textContent = currentBookIndex + 1;
-                totalBooksEl.textContent = books.length;
-            } else {
-                // 如果元素不存在，直接更新整个计数器
-                const counterEl = document.querySelector('.book-counter');
-                if (counterEl) {
-                    counterEl.textContent = `${currentBookIndex + 1} / ${books.length}`;
-                }
+        // 使用 IntersectionObserver 统计用户实际浏览到的书籍，并维护 "当前书"（用于分享）
+        function setupBookViewObserver() {
+            const cards = document.querySelectorAll('#bookDisplay .book-card');
+            if (!cards.length) return;
+
+            // 不支持 IntersectionObserver 时，直接认为所有书都被浏览过一次
+            if (typeof IntersectionObserver === 'undefined') {
+                books.forEach(book => {
+                    if (book && book.id && !viewedBooksInSession.has(book.id)) {
+                        trackEvent('book_view', { bookId: book.id, extra: {} });
+                        viewedBooksInSession.add(book.id);
+                    }
+                });
+                return;
             }
-        }
 
-        // 更新导航按钮（循环模式下按钮始终可用）
-        function updateNavButtons() {
-            // 循环模式下，按钮始终可用，不需要禁用
-            document.getElementById('prevBtn').disabled = false;
-            document.getElementById('nextBtn').disabled = false;
-        }
+            const observer = new IntersectionObserver((entries) => {
+                entries.forEach(entry => {
+                    if (!entry.isIntersecting) return;
+                    const el = entry.target;
+                    const id = parseInt(el.getAttribute('data-book-id'), 10);
+                    if (!id) return;
 
-        // 上一本（支持循环：第一本时跳到最后一本）
-        function prevBook() {
-            if (currentBookIndex > 0) {
-                displayBook(currentBookIndex - 1);
-            } else {
-                // 如果是第一本，循环到最后一本
-                displayBook(books.length - 1);
-            }
-        }
+                    // 记录浏览去重
+                    if (!viewedBooksInSession.has(id)) {
+                        trackEvent('book_view', { bookId: id, extra: {} });
+                        viewedBooksInSession.add(id);
+                    }
 
-        // 下一本（支持循环：最后一本时跳到第一本）
-        function nextBook() {
-            if (currentBookIndex < books.length - 1) {
-                displayBook(currentBookIndex + 1);
-            } else {
-                // 如果是最后一本，循环到第一本
-                displayBook(0);
-            }
+                    // 更新当前书索引，供分享/兜底使用
+                    const idx = books.findIndex(b => b.id === id);
+                    if (idx >= 0) {
+                        currentBookIndex = idx;
+                    }
+                });
+            }, {
+                threshold: 0.3
+            });
+
+            cards.forEach(card => observer.observe(card));
         }
 
         // 显示交换记录
