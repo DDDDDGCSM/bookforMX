@@ -109,6 +109,34 @@
             background: #95A5A6;
             cursor: not-allowed;
         }
+        .image-upload-area {
+            border: 2px dashed #E8D5B7;
+            border-radius: 8px;
+            padding: 16px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s;
+            margin-bottom: 8px;
+        }
+        .image-upload-area:hover {
+            border-color: #2C5F2D;
+            background: #FAF5ED;
+        }
+        .image-upload-area.has-image {
+            border-style: solid;
+            padding: 10px;
+        }
+        .upload-icon {
+            font-size: 32px;
+            color: #6D4C41;
+            margin-bottom: 6px;
+        }
+        .uploaded-image {
+            max-width: 100%;
+            max-height: 180px;
+            border-radius: 8px;
+            margin-top: 6px;
+        }
         .market-list {
             margin-top: 4px;
         }
@@ -118,6 +146,13 @@
         }
         .market-item:last-child {
             border-bottom: none;
+        }
+        .item-image {
+            width: 100%;
+            max-height: 220px;
+            object-fit: cover;
+            border-radius: 8px;
+            margin-bottom: 6px;
         }
         .item-title {
             font-size: 15px;
@@ -177,7 +212,7 @@
 <body>
     <div class="container">
         <a href="/" class="back-link">
-            <span>←</span> Volver a Trueque Digital
+            <span>←</span> Volver a mis libros recomendados
         </a>
 
         <div class="header">
@@ -187,7 +222,7 @@
 
         <div class="card">
             <div class="section-title">Sube tu libro al tianguis</div>
-            <p class="hint">Cuenta brevemente qué libro ofreces y por qué lo recomiendas. Deja tu número de WhatsApp para que otros te contacten.</p>
+            <p class="hint">Cuenta brevemente qué libro ofreces y por qué lo recomiendas. Sube una foto y deja tu número de WhatsApp para que otros te contacten.</p>
 
             <div class="form-group">
                 <label>Título del libro *</label>
@@ -196,6 +231,15 @@
             <div class="form-group">
                 <label>Tu mensaje para los compas *</label>
                 <textarea id="descInput" maxlength="2000" placeholder="Cuéntales por qué recomiendas este libro o en qué estado está..."></textarea>
+            </div>
+            <div class="form-group">
+                <label>Foto del libro *</label>
+                <div class="image-upload-area" id="imageUploadArea" onclick="document.getElementById('bookImageInput').click()">
+                    <div class="upload-icon">📷</div>
+                    <p style="color: #6D4C41; font-size: 13px;">Toca para subir una foto</p>
+                    <img id="uploadedImagePreview" class="uploaded-image" style="display: none;">
+                </div>
+                <input type="file" id="bookImageInput" accept="image/*" style="display:none;">
             </div>
             <div class="form-group">
                 <label>Tu WhatsApp (con lada) *</label>
@@ -243,12 +287,14 @@
                     const safeTitle = (item.title || '').replace(/</g, '&lt;').replace(/>/g, '&gt;');
                     const safeDesc = (item.description || '').replace(/</g, '&lt;').replace(/>/g, '&gt;');
                     const safeCity = (item.city || '').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+                    const image = item.image || '';
                     const wa = (item.whatsapp || '').trim();
                     const waLink = wa ? 'https://wa.me/' + wa.replace(/[^0-9+]/g, '') : '';
                     const createdAt = item.created_at ? new Date(item.created_at) : null;
                     const dateStr = createdAt ? createdAt.toLocaleDateString('es-MX', { year: 'numeric', month: 'short', day: 'numeric' }) : '';
                     return `
                         <div class="market-item">
+                            ${image ? `<img class="item-image" src="${image}" alt="${safeTitle}">` : ''}
                             <div class="item-title">${safeTitle}</div>
                             <div class="item-meta">
                                 ${safeCity ? safeCity + ' · ' : ''}${dateStr ? dateStr : ''}
@@ -267,6 +313,31 @@
             }
         }
 
+        let uploadedImage = null;
+
+        document.getElementById('bookImageInput').addEventListener('change', function (event) {
+            const file = event.target.files[0];
+            if (!file) return;
+            const maxSize = 1024 * 1024 * 1.5; // 1.5MB
+            if (file.size > maxSize) {
+                showToast('La imagen es muy pesada (máx 1.5MB).');
+                event.target.value = '';
+                return;
+            }
+            const reader = new FileReader();
+            reader.onload = function (e) {
+                uploadedImage = e.target.result;
+                const preview = document.getElementById('uploadedImagePreview');
+                const area = document.getElementById('imageUploadArea');
+                preview.src = uploadedImage;
+                preview.style.display = 'block';
+                area.classList.add('has-image');
+                area.querySelector('.upload-icon').style.display = 'none';
+                area.querySelector('p').textContent = 'Toca para cambiar la foto';
+            };
+            reader.readAsDataURL(file);
+        });
+
         async function publishItem() {
             const btn = document.getElementById('publishBtn');
             if (btn.disabled) return;
@@ -275,8 +346,8 @@
             const wa = document.getElementById('waInput').value.trim();
             const city = document.getElementById('cityInput').value.trim();
 
-            if (!title || !desc || !wa) {
-                showToast('Por favor llena título, mensaje y WhatsApp.');
+            if (!title || !desc || !wa || !uploadedImage) {
+                showToast('Por favor llena título, mensaje, WhatsApp y sube una foto.');
                 return;
             }
 
@@ -290,7 +361,8 @@
                         title,
                         description: desc,
                         whatsapp: wa,
-                        city
+                        city,
+                        image: uploadedImage
                     })
                 });
                 const data = await res.json();
@@ -303,6 +375,17 @@
                     document.getElementById('descInput').value = '';
                     document.getElementById('waInput').value = '';
                     document.getElementById('cityInput').value = '';
+                     // 清空图片
+                    uploadedImage = null;
+                    const preview = document.getElementById('uploadedImagePreview');
+                    const area = document.getElementById('imageUploadArea');
+                    const input = document.getElementById('bookImageInput');
+                    preview.src = '';
+                    preview.style.display = 'none';
+                    area.classList.remove('has-image');
+                    area.querySelector('.upload-icon').style.display = 'block';
+                    area.querySelector('p').textContent = 'Toca para subir una foto';
+                    input.value = '';
                     // 重新加载列表
                     fetchMarketItems();
                 }

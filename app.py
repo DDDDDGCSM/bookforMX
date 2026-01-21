@@ -167,6 +167,7 @@ def _init_database_if_available():
                     description TEXT NOT NULL,
                     whatsapp TEXT NOT NULL,
                     city TEXT,
+                    image TEXT,
                     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                 )
             ''')
@@ -211,7 +212,8 @@ def get_market_storage():
     return _market_storage
 
 
-def create_market_item(title: str, description: str, whatsapp: str, city: Optional[str] = None) -> Dict[str, Any]:
+def create_market_item(title: str, description: str, whatsapp: str, city: Optional[str] = None,
+                      image: Optional[str] = None) -> Dict[str, Any]:
     """创建一条图书集市记录（优先写入数据库，失败则写入内存）"""
     item = {
         'id': None,
@@ -219,6 +221,7 @@ def create_market_item(title: str, description: str, whatsapp: str, city: Option
         'description': description.strip(),
         'whatsapp': whatsapp.strip(),
         'city': (city or '').strip(),
+        'image': (image or '').strip() if image else '',
         'created_at': datetime.utcnow().isoformat()
     }
 
@@ -229,17 +232,18 @@ def create_market_item(title: str, description: str, whatsapp: str, city: Option
             cursor = db_conn.cursor()
             cursor.execute(
                 '''
-                INSERT INTO book_market_items (title, description, whatsapp, city)
-                VALUES (%s, %s, %s, %s)
-                RETURNING id, created_at
+                INSERT INTO book_market_items (title, description, whatsapp, city, image)
+                VALUES (%s, %s, %s, %s, %s)
+                RETURNING id, image, created_at
                 ''',
-                (item['title'], item['description'], item['whatsapp'], item['city'] or None)
+                (item['title'], item['description'], item['whatsapp'], item['city'] or None, item['image'] or None)
             )
             row = cursor.fetchone()
             if row:
                 item['id'] = row[0]
-                if row[1]:
-                    item['created_at'] = row[1].isoformat() if hasattr(row[1], 'isoformat') else str(row[1])
+                item['image'] = row[1] or ''
+                if row[2]:
+                    item['created_at'] = row[2].isoformat() if hasattr(row[2], 'isoformat') else str(row[2])
             cursor.close()
             return item
         except Exception as e:
@@ -264,7 +268,7 @@ def list_market_items(limit: int = 100) -> list:
             cursor = db_conn.cursor()
             cursor.execute(
                 '''
-                SELECT id, title, description, whatsapp, city, created_at
+                SELECT id, title, description, whatsapp, city, image, created_at
                 FROM book_market_items
                 ORDER BY created_at DESC
                 LIMIT %s
@@ -281,7 +285,8 @@ def list_market_items(limit: int = 100) -> list:
                     'description': row[2],
                     'whatsapp': row[3],
                     'city': row[4] or '',
-                    'created_at': row[5].isoformat() if hasattr(row[5], 'isoformat') else str(row[5])
+                    'image': row[5] or '',
+                    'created_at': row[6].isoformat() if hasattr(row[6], 'isoformat') else str(row[6])
                 })
             return items
         except Exception as e:
@@ -606,15 +611,16 @@ def api_market_upload():
     description = (data.get('description') or '').strip()
     whatsapp = (data.get('whatsapp') or '').strip()
     city = (data.get('city') or '').strip()
+    image = (data.get('image') or '').strip()
 
-    if not title or not description or not whatsapp:
-        return jsonify({'success': False, 'error': 'title, description y whatsapp son obligatorios'}), 400
+    if not title or not description or not whatsapp or not image:
+        return jsonify({'success': False, 'error': 'title, description, whatsapp e imagen son obligatorios'}), 400
 
     # 简单防护：限制长度
-    if len(title) > 200 or len(description) > 2000 or len(whatsapp) > 50 or len(city) > 100:
+    if len(title) > 200 or len(description) > 2000 or len(whatsapp) > 50 or len(city) > 100 or len(image) > 2_000_000:
         return jsonify({'success': False, 'error': 'Campos demasiado largos'}), 400
 
-    item = create_market_item(title=title, description=description, whatsapp=whatsapp, city=city)
+    item = create_market_item(title=title, description=description, whatsapp=whatsapp, city=city, image=image)
 
     # 记录埋点：有人在集市发布了一本书
     try:
